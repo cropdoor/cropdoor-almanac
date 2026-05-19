@@ -1,0 +1,13 @@
+site/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+.idea/
+.vscode/
+
+# encryptcontent plugin caches the AES key derivation per password so it
+# doesn't re-derive on every build. Local-only artifact — never commit.
+encryptcontent.cache
+
