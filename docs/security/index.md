@@ -2,7 +2,7 @@
 
 How CropDoor protects authentication, sessions, and request integrity.
 
-The security stack is built around stateless JWTs (HS512), Spring Security's filter chain, Redis-backed rate limiting, per-request correlation IDs, and a strict CORS allow-list. Everything below the auth filter assumes the caller's identity has already been resolved into a `CustomUserDetails`.
+The security stack is built around stateless JWTs (HS512), Spring Security's filter chain, Redis-backed rate limiting, per-request correlation IDs, and a strict CORS allow-list. Everything below the auth filter assumes the caller's identity has already been resolved into a `CustomUserDetails`. There is no session store; `Authorization: Bearer <token>` is the only auth channel.
 
 ## Planned pages
 
@@ -15,4 +15,4 @@ The security stack is built around stateless JWTs (HS512), Spring Security's fil
 - **CORS** — `CorsConfig`, `CorsProperties`, the `CORS_ALLOWED_ORIGINS` env var.
 
 !!! info "Status"
-    Scaffolding. Source material under `src/main/java/com/cropdoor/backend/security/`.
+    Scaffolding. Source material under `src/main/java/com/cropdoor/backend/security/`. Sub-pages will get split out as each topic is documented in depth.

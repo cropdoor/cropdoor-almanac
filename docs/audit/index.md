@@ -17,4 +17,4 @@ The pipeline has five layers: a typed catalog (`AuditAction`), an explicit wire 
 - **Adding a new audit event** — add to `AuditAction`, add method to `AuditEmitter` + impl, choose direct vs `@Audited`, update the org-feed whitelist if relevant.
 
 !!! info "Status"
-    Scaffolding. Source material under `src/main/java/com/cropdoor/backend/model/platform/`, `service/platform/`, `aspect/audit/`, `event/`, `service/org/`. The existing `cropdoor-backend/docs/audit/audit-subsystem.md` is a 600-line reference; this almanac will absorb it after the drift is fixed.
+    Scaffolding. Source material under `src/main/java/com/cropdoor/backend/model/platform/`, `service/platform/`, `aspect/audit/`, `event/`, `service/org/`. The existing `cropdoor-backend/docs/audit/audit-subsystem.md` is a 600-line reference; this almanac will absorb it after the drift is fixed. Sub-pages get split out as each topic is documented.

@@ -20,7 +20,6 @@ theme:
     - navigation.tabs
     - navigation.tabs.sticky
     - navigation.sections
-    - navigation.indexes
     - navigation.top
     - navigation.tracking
     - navigation.footer
@@ -32,6 +31,13 @@ theme:
     - content.tabs.link
     - content.tooltips
     - toc.follow
+    # Merges the right-side TOC into the left nav drawer. Required for
+    # mobile — without it, Material hides the TOC sidebar on narrow
+    # viewports and provides no replacement UI. Side effect: desktop
+    # loses the dual-sidebar look (TOC now nests inside the section nav
+    # instead of floating on the right). Net win — one consistent
+    # navigation surface across viewport sizes.
+    - toc.integrate
   palette:
     # Both schemes use `custom` so the brand palette lives entirely in
     # stylesheets/extra.css (CropDoor design system: forest + lime + sand).
@@ -106,22 +112,27 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Architecture:
-      - architecture/index.md
+      - Overview: architecture/index.md
+      - Module map: architecture/module-map.md
+      - Request lifecycle: architecture/request-lifecycle.md
+      - Persistence and transactions: architecture/persistence.md
+      - ArchUnit pins: architecture/archunit-pins.md
+      - Roadmap surfaces: architecture/roadmap.md
   - Security:
-      - security/index.md
+      - Overview: security/index.md
   - Authentication:
-      - auth/index.md
+      - Overview: auth/index.md
   - RBAC & Permissions:
-      - rbac/index.md
+      - Overview: rbac/index.md
   - Audit Logging:
-      - audit/index.md
+      - Overview: audit/index.md
   - Domain:
-      - domain/index.md
+      - Overview: domain/index.md
   - Payments:
-      - payments/index.md
+      - Overview: payments/index.md
   - Notifications:
-      - notifications/index.md
+      - Overview: notifications/index.md
   - Operations:
-      - operations/index.md
+      - Overview: operations/index.md
   - Contributing:
-      - contributing/index.md
+      - Overview: contributing/index.md

@@ -16,4 +16,4 @@ The model is **two-tier**: platform-admin RBAC (managed by `SUPER_ADMIN`) sits p
 - **Recipe — adding a new permission** — pick code, add `Permissions.X` constant, Flyway migration, wire to endpoint, update slice tests.
 
 !!! info "Status"
-    Scaffolding. Source material under `src/main/java/com/cropdoor/backend/security/Permissions.java`, `service/rbac/`, `model/rbac/`. ArchUnit pin: `PermissionsCatalogConsistencyTest`.
+    Scaffolding. Source material under `src/main/java/com/cropdoor/backend/security/Permissions.java`, `service/rbac/`, `model/rbac/`. ArchUnit pin: `PermissionsCatalogConsistencyTest`. Sub-pages get split out as each topic is documented.

@@ -18,4 +18,4 @@ CropDoor has multiple identity surfaces — regular users, platform admins, orga
 - **Email verification** — verification token lifecycle.
 
 !!! info "Status"
-    Scaffolding. Source material under `src/main/java/com/cropdoor/backend/service/auth/` and `controller/auth/`. The existing `cropdoor-backend/docs/auth/auth-flows.md` is a reference but pre-dates the phone-verification-gate work.
+    Scaffolding. Source material under `src/main/java/com/cropdoor/backend/service/auth/` and `controller/auth/`. The existing `cropdoor-backend/docs/auth/auth-flows.md` is a reference but pre-dates the phone-verification-gate work. Sub-pages will get split out as each flow is documented.

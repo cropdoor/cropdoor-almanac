@@ -1,8 +1,8 @@
 # Architecture
 
-The platform-level view: what runs where, how a request flows through it, and which subsystems are load-bearing.
+The platform-level view: what runs where and which subsystems are load-bearing.
 
-This page is the front door. If you're a new contributor, read it end to end — by the time you reach the bottom you should know which package owns what, how a request becomes an audit row, and where to go for deeper detail on any given subsystem.
+This page is the **front door** — the briefest possible answer to "what is CropDoor and how is it shaped?" For the deeper reference material, the pages under this section have it: [Module map](module-map.md), [Request lifecycle](request-lifecycle.md), [Persistence and transactions](persistence.md), [ArchUnit pins](archunit-pins.md), [Roadmap surfaces](roadmap.md).
 
 ## What CropDoor is
 
@@ -71,81 +71,9 @@ flowchart TB
 
 Backend authentication is stateless: access + refresh tokens (HS512) carry identity, Redis carries everything ephemeral (rate-limit buckets, OTP codes, JWT blacklist on logout). PostgreSQL carries everything durable. There is no session store — `Authorization: Bearer <token>` is the only auth channel.
 
-## Backend module map
-
-Top-level packages under `com.cropdoor.backend.*`:
-
-| Package | Owns |
-| --- | --- |
-| `annotations` | Custom Java annotations |
-| `aspect/audit` | `@Audited` annotation, the audit AOP aspect, principal resolution |
-| `aspect/validation` | Boot-time validation post-processors (e.g. `AuditedMethodValidationPostProcessor`) |
-| `bootstrap` | Startup runners (super-admin seeding, waitlist backfill) |
-| `config` | `@Configuration` beans — CORS, Resend, Async, Clock, JPA auditing, S3, Swagger |
-| `controller/{admin,auth,buyer,farm,order,waitlist,webhook}` | REST controllers grouped by domain side |
-| `dto/{domain}/{request,response}` | Request + response records (Java records, immutable) |
-| `event` | Spring application events (`AuditEvent`, email events) and their listeners |
-| `exception` | Custom exceptions and `GlobalExceptionHandler` |
-| `job` | Scheduled jobs (unverified-user purge cron, invite expiry sweeps) |
-| `mapper` | MapStruct interfaces; one hand-written mapper where business logic intrudes |
-| `model/{address,buyer,commission,common,delivery,dispute,driver,farm,fee,listing,order,payment,platform,rbac,review,user,waitlist}` | JPA entities, grouped by aggregate |
-| `observability` | `MetricsService`, health indicators |
-| `repository/{domain}` | Spring Data JPA repositories |
-| `security` | Spring Security config, JWT, OAuth, rate limiting, correlation ID, password policy |
-| `service/{admin,auth,buyer,farm,listing,notification,order,org,platform,rbac,waitlist}` | Business logic — one service package per bounded context |
-| `util` | Pure helpers (E.164 normalization, hashing, etc.) |
-| `validation` | Bean Validation constraints + validators |
-
-The naming convention is **one package per bounded context**, with the same name reused across `controller`, `dto`, `mapper`, `model`, `repository`, and `service`. A new domain area gets six folders, not one.
-
-## Request lifecycle
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Client
-    participant CORS as CORS<br/>(SecurityConfig)
-    participant CID as CorrelationIdFilter
-    participant JWT as JwtAuthFilter
-    participant RL as RateLimitFilter
-    participant Sec as @PreAuthorize
-    participant Ctrl as Controller
-    participant Svc as Service<br/>@Transactional
-    participant Repo as Repository
-    participant DB as PostgreSQL
-    participant Emit as AuditEmitter
-    participant Bus as Event bus
-
-    Client->>CORS: HTTPS request
-    CORS->>CID: pass
-    CID->>JWT: attach X-Request-Id<br/>(MDC)
-    JWT->>RL: principal resolved
-    RL->>Sec: token bucket OK
-    Sec->>Ctrl: authority check passes
-    Ctrl->>Svc: invoke
-    Svc->>Repo: read / write
-    Repo->>DB: SQL
-    DB-->>Repo: rows
-    Repo-->>Svc: entities
-    Svc->>Emit: emit audit event
-    Emit->>Bus: publish AuditEvent
-    Svc-->>Ctrl: return DTO
-    Ctrl-->>Client: 2xx response
-    Note over Bus: tx commits or rolls back
-    Bus->>DB: INSERT audit_log<br/>(AFTER_COMPLETION,<br/>@Async, REQUIRES_NEW)
-```
-
-A few things worth knowing about the chain:
-
-- **`CorrelationIdFilter` runs first** so every log line downstream carries the request ID via MDC. The header is `X-Request-Id` and is echoed back on the response.
-- **`JwtAuthFilter` resolves the principal** from the `Authorization: Bearer <token>` header. No cookies. No session store. If the token is on the Redis blacklist (set on logout), the filter rejects the request.
-- **`RateLimitFilter` (and the admin-specific `AdminPerUserRateLimitFilter`) gate on token buckets stored in Redis**, keyed by identifier and scope.
-- **`@PreAuthorize` is layer 1 of authorization**. Layer 2 (`requireActiveMembership`) and layer 3 (`enforceNoEscalation`) live inside services — see [RBAC](../rbac/index.md) for why three layers.
-- **Audit emission happens inside the service transaction** but the persistence happens *outside* it. The listener is `@TransactionalEventListener(AFTER_COMPLETION) @Async @Transactional(REQUIRES_NEW)`, which means audits land even when the outer transaction rolls back. This is load-bearing for failed-login audits.
-
 ## Load-bearing subsystems
 
-The four subsystems below pin invariants the rest of the platform depends on. Read their dedicated pages before changing any of them.
+Four subsystems pin invariants the rest of the platform depends on. Read their dedicated section pages before changing any of them.
 
 ### Security stack
 
@@ -163,45 +91,15 @@ Five-layer pipeline: typed action catalog (`AuditAction`) → wire contract (`Au
 
 A user is a member of **at most one organisation** at a time, enforced by a partial unique index on `members(user_id) WHERE status IN ('PENDING','ACTIVE')`. Each org auto-mints an `Owner` system role on creation; the Owner role is **immutable and non-invitable** and can only be changed by Flyway migration. STAFF users with no active membership are dormant — they can authenticate but every org-scoped endpoint returns 403. See [Domain](../domain/index.md).
 
-## Persistence and migrations
+## Deeper detail in this section
 
-PostgreSQL 18 is the system of record. Schema lives entirely in `src/main/resources/db/migration/` as Flyway `V<n>__description.sql` files. Two hard rules:
-
-- **Never edit an applied migration.** Flyway computes a checksum on every file in `flyway_schema_history`. Editing a file after it has run anywhere — local, testing, staging, prod — produces a checksum mismatch and the application refuses to start (`spring.flyway.validate-on-migrate=true`). Fix forward with a new `V<n+1>` migration.
-- **Don't write `${...}` in migration files unless you mean it as a Flyway placeholder.** Flyway's `PlaceholderReplacingReader` scans the entire file — including comments — before the SQL parser runs. An unregistered `${TOKEN}` aborts the migration and unwinds the entire application context. If you need to document a placeholder shape in a comment, write it in prose form: `[CDN_BASE_URL]/[s3_key]`, not `${CDN_BASE_URL}`.
-
-JSONB is used deliberately, not as an escape hatch. The only routine JSONB column is `audit_log.details`, accessed via `function('jsonb_extract_path_text', ...)` from the per-org audit feed query.
-
-## Transactions and async work
-
-- **Default policy:** services own `@Transactional` boundaries; repositories don't declare their own. A single service method is one unit of work.
-- **Async listeners** (`@Async @TransactionalEventListener`) run on a separate executor configured in `AsyncConfig`. They have their own persistence context and never share state with the caller.
-- **Audit emission uses `AFTER_COMPLETION`**, not `AFTER_COMMIT`. The reason is failed-login audits: they're emitted from a catch-and-rethrow path, so the outer transaction rolls back. With `AFTER_COMMIT` the audit silently disappears; with `AFTER_COMPLETION` plus `REQUIRES_NEW` it persists regardless of the outer outcome.
-- **Email events** use the same pattern — published in-transaction, sent out-of-transaction, so a transactional failure doesn't leak partial-state emails.
-
-## Architecture pins (ArchUnit)
-
-Every load-bearing rule the human-readable docs claim is also enforced at build time under `src/test/java/com/cropdoor/backend/architecture/`:
-
-| Test | Enforces |
+| Page | Covers |
 | --- | --- |
-| `AuditAopArchitectureTest` | `@Audited` has exactly one method named `value`. `@AuditPrincipal` is a zero-method marker. Every `@Audited` method is public, non-static, non-final. `@AuditPrincipal` only marks `User`-typed parameters. The `aspect/` directory stays under its 6-file cap. |
-| `OrgIsolationArchitectureTest` | No class in `controller/farm/**` injects buyer-side beans, and vice versa. No class in `service/farm/**` injects `BuyerProfileService`, and vice versa. Cross-side leakage fails CI. |
-| `PermissionsCatalogConsistencyTest` | Every `Permissions.*` constant matches the `<SCOPE>::<DOMAIN>::<ACTION>` pattern. Allowed scopes and actions are pinned to an allow-list. Constant names mirror their code values (`::` → `_`). |
-| `EmailEventListenerArchitectureTest` | Pin against direct Resend send-calls; emails must flow through the event-listener pipeline. |
-
-If you add a new aspect, a new permission scope, or a new cross-cutting integration, expect to update one of these tests *or* deliberately decide not to. Don't skip the conversation.
-
-## Roadmap surfaces (in model, not in flow)
-
-The following entities exist in `model/` but the surrounding service + controller integration is partial or not yet wired. Pages that describe them mark current-vs-planned explicitly.
-
-- **Payments** — `Payment`, `PaymentAttempt`, `Payout`, `PaymentStatus`, `PayoutStatus`. Provider integration (escrow, settlement) is not in code.
-- **Disputes** — `Dispute` entity exists; controller and dispute-lifecycle service are roadmap.
-- **Drivers + delivery** — `DriverProfile`, `Delivery`. Roadmap.
-- **Reviews** — `Review`. Roadmap.
-
-`OAuthRoleStateStore` and `RoleAwareOAuth2AuthorizationRequestResolver` are *in flow*, not roadmap — Google OAuth is shipped. Phone-verification gate (the `phone-verification-gate` branch) is in flow on a feature branch and will be folded into [Authentication](../auth/index.md) once it merges to `main`.
+| [Module map](module-map.md) | Every top-level Java package and what it owns |
+| [Request lifecycle](request-lifecycle.md) | Edge-to-audit-row request flow + filter chain detail |
+| [Persistence and transactions](persistence.md) | Flyway rules, transactional policy, async listener pattern |
+| [ArchUnit pins](archunit-pins.md) | Architectural invariants enforced at build time |
+| [Roadmap surfaces](roadmap.md) | What's in model but not yet wired through |
 
 ## Where to next
 
