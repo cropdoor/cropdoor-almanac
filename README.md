@@ -7,7 +7,7 @@ The almanac is the trusted reference book for the CropDoor farm. It sits alongsi
 | Stage | Where |
 | ----- | ----- |
 | Testing | `nursery.cropdoor.com` |
-| Staging | `harvest.cropdoor.com` |
+| Staging | `field.cropdoor.com` |
 | Reference docs | `almanac.cropdoor.com` |
 
 ## What this repo is

@@ -81,7 +81,7 @@ If you're a new contributor, start with [Architecture overview](architecture/ind
 | Stage | Where |
 | ----- | ----- |
 | Testing | [nursery.cropdoor.com](https://nursery.cropdoor.com) |
-| Staging | [harvest.cropdoor.com](https://harvest.cropdoor.com) |
+| Staging | [field.cropdoor.com](https://field.cropdoor.com) |
 | Reference docs | **you are here** |
 
 The almanac is the trusted reference book on the farm. Check it before you change a load-bearing subsystem.

@@ -2,7 +2,7 @@
 
 Running CropDoor — locally, in CI, and across the four environments.
 
-The promotion flow is `develop` → `testing` (`nursery`) → `staging` (`harvest`) → `production`. Every environment is a Docker image built by GitHub Actions and deployed via Dokploy.
+The promotion flow is `develop` → `testing` (`nursery`) → `staging` (`field`) → `production`. Every environment is a Docker image built by GitHub Actions and deployed via Dokploy.
 
 ## Planned pages
 
