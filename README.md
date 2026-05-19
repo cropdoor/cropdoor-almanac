@@ -46,34 +46,7 @@ Live reload on save. Build a one-off static site with `mkdocs build` (output in 
 
 ## Deploy
 
-Push to `main`. The `deploy` workflow in `.github/workflows/deploy.yml` runs `mkdocs gh-deploy`, which builds the site and force-pushes to the `gh-pages` branch. GitHub Pages serves from `gh-pages` to <https://almanac.cropdoor.com> via the `docs/CNAME` file.
-
-## Access — shared internal password
-
-The published site is gated by [`mkdocs-encryptcontent-plugin`](https://github.com/unverbuggt/mkdocs-encryptcontent-plugin). Every page is AES-encrypted at build time; the browser decrypts in place after the visitor enters the shared password.
-
-**Current shared credential:**
-
-| Field | Value |
-| --- | --- |
-| Password | `almanac@cropdoor` |
-
-The credential is stored in `mkdocs.yml` under `plugins.encryptcontent.global_password`. That's appropriate for a private repo with only the 5-person internal team as collaborators — the password is visible to anyone with repo read access, which is the same set of people who already have the password. **Don't make the `cropdoor-almanac` repo public** without first rotating the password to a GitHub Actions secret + build-time substitution.
-
-### Rotating the password
-
-1. Edit `plugins.encryptcontent.global_password` in `mkdocs.yml`.
-2. Commit + push to `main`.
-3. The deploy workflow rebuilds and republishes; all content re-encrypts under the new password.
-4. Old `localStorage` entries on team-member browsers stop decrypting; they get prompted for the new password on next visit. No server-side state to clear.
-
-### Threat model — what this actually protects against
-
-- **Web crawlers and casual snoopers** — yes. The published HTML is ciphertext; no page content, table of contents, or search index leaks before the password is entered.
-- **An adversary who already has the password** — no protection. Anyone with the password can read everything.
-- **A determined attacker with no password** — limited. The encrypted content + the password-verification hash are both in the published JS bundle. AES-GCM is secure, but a leaked password = full access.
-
-This is the right level of gating for "internal-team-only docs that aren't actual secrets." It is not a substitute for real access control (Cloudflare Access, GitHub Enterprise private Pages) if the content ever becomes more sensitive.
+Push to `main`. The `deploy` workflow in `.github/workflows/deploy.yml` builds the site, uploads it as a Pages artifact, and the deploy job publishes it to <https://almanac.cropdoor.com>. The custom domain is mapped via `docs/CNAME`.
 
 ## Contributing
 
