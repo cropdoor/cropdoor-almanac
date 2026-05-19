@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{#
+  Extends Material's base template solely to inject Open Graph + Twitter
+  Card meta tags. We ship a single shared social-preview image at
+  /assets/og-image.png — every URL share into Slack/email/etc. resolves
+  to the same branded card. If per-page previews become a need later,
+  switch to Material's built-in `social` plugin instead.
+#}
+
+{% block extrahead %}
+  <!-- Open Graph (Facebook, Slack, LinkedIn, iMessage, Discord) -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="{{ config.site_name }}">
+  <meta property="og:title" content="{{ config.site_name }}">
+  <meta property="og:description" content="{{ config.site_description }}">
+  <meta property="og:image" content="{{ config.site_url }}/assets/og-image.png">
+  <meta property="og:image:width" content="2400">
+  <meta property="og:image:height" content="1260">
+  <meta property="og:url" content="{{ page.canonical_url if page else config.site_url }}">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ config.site_name }}">
+  <meta name="twitter:description" content="{{ config.site_description }}">
+  <meta name="twitter:image" content="{{ config.site_url }}/assets/og-image.png">
+{% endblock %}
