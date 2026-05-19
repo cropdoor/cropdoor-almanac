@@ -347,6 +347,17 @@
   font-size: 22px;
   letter-spacing: -0.01em;
 }
+/* The logo file is forest-500 on transparent — invisible against the
+ * forest-500 header bar without a recolor. Filter chain converts the
+ * single-color silhouette to warm white (sand-100 equivalent) so it
+ * reads against the header in both light and dark mode. The favicon
+ * keeps the original dark green for visibility on white browser tabs. */
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  filter: brightness(0) invert(1) brightness(0.97) sepia(0.12) saturate(0.5);
+  height: 28px;
+  width: auto;
+}
 .md-tabs {
   background: var(--md-primary-fg-color);
   border-top: 1px solid rgba(255, 255, 255, 0.06);

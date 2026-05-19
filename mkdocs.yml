@@ -34,15 +34,16 @@ theme:
   palette:
     # Both schemes use `custom` so the brand palette lives entirely in
     # stylesheets/extra.css (CropDoor design system: forest + lime + sand).
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
+    # Light is the hard default — loads regardless of OS preference.
+    # Dark is opt-in via the toggle button; Material remembers the choice
+    # in localStorage so users don't have to flip on every visit.
+    - scheme: default
       primary: custom
       accent: custom
       toggle:
         icon: material/weather-night
         name: Switch to dark mode
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
+    - scheme: slate
       primary: custom
       accent: custom
       toggle:
@@ -51,6 +52,8 @@ theme:
   font:
     text: Inter
     code: JetBrains Mono
+  logo: assets/logo.png
+  favicon: assets/logo.png
   icon:
     repo: fontawesome/brands/github
     edit: material/pencil
