@@ -130,6 +130,14 @@ nav:
       - Overview: domain/index.md
   - Payments:
       - Overview: payments/index.md
+      - Money, pricing, tax & commission: payments/money-model.md
+      - Gateway, Paystack & webhooks: payments/gateway-and-webhooks.md
+      - Core flows: payments/core-flows.md
+      - The double-entry ledger: payments/ledger.md
+      - Reconciliation: payments/reconciliation.md
+      - Receipts & credit notes: payments/receipts-and-credit-notes.md
+      - Data model & configuration: payments/data-model-and-configuration.md
+      - Resiliency, audit & ops: payments/resiliency-audit-and-ops.md
   - Notifications:
       - Overview: notifications/index.md
   - Operations:

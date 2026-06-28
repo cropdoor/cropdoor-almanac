@@ -9,7 +9,7 @@ The almanac is markdown. Add a file under `docs/<section>/`, link it from the se
 - **One page, one topic.** If a page grows past ~800 lines, split it.
 - **Lead with the why.** Open with one or two paragraphs explaining what the subsystem is for and the load-bearing constraints. Save the reference detail for later sections.
 - **Link to code.** Reference files and classes by their actual path: `service/platform/AuditEmitterImpl.java`, not "the audit emitter class somewhere."
-- **Mark current-vs-planned.** When a section describes a roadmap surface (e.g. payments today), say so explicitly — readers should never have to guess whether what's documented is shipped.
+- **Mark current-vs-planned.** When a section describes a roadmap surface (e.g. in-app disputes, drivers/delivery, reviews), say so explicitly — readers should never have to guess whether what's documented is shipped.
 - **Use Mermaid for state and sequence.** Order lifecycle, member lifecycle, auth flows — all candidates for diagrams. See [Mermaid docs](https://mermaid.js.org/) for syntax.
 - **Admonitions for emphasis.** Material supports `note`, `warning`, `info`, `tip`, `example`. Use sparingly — every page tagged "warning" makes none of them warnings.
 

@@ -23,7 +23,7 @@ The naming convention is **one package per bounded context**, with the same name
 | `observability` | `MetricsService`, health indicators |
 | `repository/{domain}` | Spring Data JPA repositories |
 | `security` | Spring Security config, JWT, OAuth, rate limiting, correlation ID, password policy |
-| `service/{admin,auth,buyer,farm,listing,notification,order,org,platform,rbac,waitlist}` | Business logic — one service package per bounded context |
+| `service/{admin,auth,buyer,farm,listing,notification,order,org,payment,platform,rbac,waitlist}` | Business logic — one service package per bounded context (`payment` holds the gateway seam, ledger, reconcilers, dispute-defense) |
 | `util` | Pure helpers (E.164 normalization, hashing, etc.) |
 | `validation` | Bean Validation constraints + validators |
 

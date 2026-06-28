@@ -12,8 +12,8 @@ CropDoor is a two-sided marketplace. Farms list produce; buyers place orders. Bo
 - **Listings + image storage** — `Listing`, `ListingImage`, the S3 + CDN pipeline, the per-listing image cap (currently 4 via env override), the `S3ListingImageStorage` fail-fast guard on `cropdoor.cdn.base-url`.
 - **Order lifecycle** — the full state machine, `OrderStatusHistory`, two-sided audit emission, `CancellationSide`, on-time delivery computation.
 - **Order taxes and fees** — `OrderTax`, `OrderCommission`, `Fee`, `CommissionRate`. How per-order totals are computed.
-- **Payments + payouts** — `Payment`, `PaymentAttempt`, `Payout`. **Note:** the model exists; provider integration (escrow, settlement) is on the roadmap, not in code. This page will clearly mark current-vs-planned.
-- **Disputes + reviews** — `Dispute`, `Review`. Roadmap surface.
+- **Payments + payouts** — `Payment`, `PaymentAttempt`, `Payout`. Shipped: Paystack escrow checkout, payouts, refunds, chargebacks, and the double-entry ledger. The full picture lives in the [Payments](../payments/index.md) section.
+- **Reviews + in-app disputes** — `Review`, `model/dispute/*`. Roadmap surface. *(Not to be confused with Paystack chargeback dispute-defense, which is shipped — see [Payments](../payments/index.md).)*
 - **Drivers + delivery** — `DriverProfile`, `Delivery`. Roadmap surface.
 
 !!! info "Status"

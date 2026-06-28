@@ -108,6 +108,6 @@ A user is a member of **at most one organisation** at a time, enforced by a part
 - **RBAC** — the two-tier model, permission catalog, three-layer gates → [RBAC & Permissions](../rbac/index.md)
 - **Audit logging** — the five-layer pipeline, action catalog, per-org feed → [Audit Logging](../audit/index.md)
 - **Domain** — farms, buyers, members, listings, orders → [Domain](../domain/index.md)
-- **Payments** — payments, payouts, commissions, fees, taxes (mostly roadmap) → [Payments](../payments/index.md)
+- **Payments** — escrow checkout, payouts, refunds, chargebacks, the double-entry ledger, reconciliation → [Payments](../payments/index.md)
 - **Notifications** — email, SMS, voice OTP, delivery webhooks → [Notifications](../notifications/index.md)
 - **Operations** — env vars, deploy flow, Docker, observability → [Operations](../operations/index.md)

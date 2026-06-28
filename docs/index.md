@@ -54,7 +54,7 @@ If you're a new contributor, start with [Architecture overview](architecture/ind
 
     ---
 
-    Payments in, payouts out, commissions, fees, taxes. Mostly roadmap today.
+    Paystack escrow checkout, payouts, refunds, chargebacks, and the double-entry ledger.
 
 - :material-bell-ring:{ .lg .middle } **[Notifications](notifications/index.md)**
 
