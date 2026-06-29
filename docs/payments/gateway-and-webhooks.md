@@ -32,7 +32,7 @@ flowchart LR
     registry["PaymentGatewayRegistry"]
     chargePort["«interface»<br/>ChargeGateway"]
     transferPort["«interface»<br/>TransferGateway"]
-    chargeSide -->|chargeGateway()| registry
+    chargeSide -->|"chargeGateway()"| registry
     registry --> chargePort
     transferSide -->|injects directly| transferPort
     registry --> transferPort

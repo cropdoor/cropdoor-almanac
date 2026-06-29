@@ -409,12 +409,12 @@ sequenceDiagram
     Admin->>Ctl: POST /v1/admin/payments/{paymentId}/refund {reason}
     Ctl->>Svc: initiateRefund(paymentId, reason, admin)
     Svc->>Svc: prepareRefund (TX1)
-    Svc->>DB: require Payment COMPLETED; save Refund PENDING; order.refundDue=false
+    Svc->>DB: require Payment COMPLETED, save Refund PENDING, order.refundDue=false
     DB-->>Svc: RefundPreparation(refundId, orderNumber, providerRef)
     Svc->>GW: refund(RefundRequest(providerRef, null, note, reason))
     GW-->>Svc: RefundResult(payload)
     Svc->>Svc: attachGatewayPayload (TX2)
-    Svc->>DB: store gateway_payload; audit refundInitiated
+    Svc->>DB: store gateway_payload, audit refundInitiated
     Ctl-->>Admin: 200 RefundResponse {status: PENDING}
     Note over GW,Svc: later — refund.processed / refund.failed webhook
 ```

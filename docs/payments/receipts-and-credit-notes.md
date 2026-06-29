@@ -139,7 +139,7 @@ sequenceDiagram
         Sync->>Doc: afterCommit → generateAndStore(receiptId)
         Doc->>Doc: renderPdf (Thymeleaf XML → openhtmltopdf)
         Doc->>S3: putObject receipts/<id>.pdf
-        Doc->>Repo: receipt.pdf_s3_key = key; save
+        Doc->>Repo: receipt.pdf_s3_key = key, save
     end
 ```
 

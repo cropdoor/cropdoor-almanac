@@ -31,6 +31,9 @@ The canonical constructor enforces three invariants and normalizes scale: it rej
 
 Paystack's API speaks **minor units** — integer pesewas (1 cedi = 100 pesewas). CropDoor's domain and `Money` speak **major units** (cedis at scale 2). The only place the two meet is `service/payment/gateway/paystack/PaystackAmounts.java`, a `final` utility with a private constructor whose Javadoc states the rule plainly: *"Domain code never sees pesewas."* It exposes `toMinorUnits(Money)` (major → integer pesewas) and `fromMinorUnits(long, Currency)` (integer pesewas → `Money`).
 
+!!! note "Why major units, and not minor units everywhere?"
+    The familiar "store money as integer minor units" rule is really "don't use binary floating point" — and `BigDecimal` already gives exact decimal arithmetic, so that motivation doesn't apply here. The deciding factor is the shape of the math: produce sells in fractional `NUMERIC(10,2)` quantities, commission is a *percentage* of the subtotal, and each levy is a rate times a base — decimal-and-percentage work that integer pesewas would make more error-prone, not less. The system of record is already decimal (`NUMERIC(12,2)` columns mapped to `BigDecimal`), so keeping `Money` in cedis gives **one representation** across entities, order math, receipts, the ledger, and the API — no `×100`/`÷100` scattered through business logic where a missing conversion could silently mis-scale a charge. Pesewas are just Paystack's wire format, and like any provider detail they belong at the edge: the single fail-loud `PaystackAmounts` seam translates, and nothing else in the domain ever sees them.
+
 Both directions are **fail-loud by construction** — rather than rounding at the edge (which could mask a mismatch between what we charged and what Paystack recorded), each throws if the conversion is not exact:
 
 | Method | Operation | Failure mode | What it catches |
