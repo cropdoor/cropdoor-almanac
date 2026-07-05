@@ -124,6 +124,11 @@ nav:
       - Overview: auth/index.md
   - RBAC & Permissions:
       - Overview: rbac/index.md
+      - The permission catalog: rbac/permission-catalog.md
+      - "Roles: system & custom": rbac/roles.md
+      - Authorization & the three gates: rbac/authorization.md
+      - Security invariants: rbac/security-invariants.md
+      - Members, org lifecycle & audit feed: rbac/members-and-org-lifecycle.md
   - Audit Logging:
       - Overview: audit/index.md
   - Domain:
