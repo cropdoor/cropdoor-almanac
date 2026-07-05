@@ -122,6 +122,13 @@ nav:
       - Overview: security/index.md
   - Authentication:
       - Overview: auth/index.md
+      - Principal model: auth/principal-model.md
+      - Registration & email verification: auth/registration-and-email-verification.md
+      - Login & the phone gate: auth/login-and-the-phone-gate.md
+      - Admin login & MFA: auth/admin-login-and-mfa.md
+      - OAuth (Google): auth/oauth.md
+      - JWT, sessions & refresh: auth/jwt-sessions-and-refresh.md
+      - OTP & password recovery: auth/otp-and-password-recovery.md
   - RBAC & Permissions:
       - Overview: rbac/index.md
       - The permission catalog: rbac/permission-catalog.md
