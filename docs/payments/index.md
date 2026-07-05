@@ -29,7 +29,7 @@ flowchart LR
 2. **Settle asynchronously.** The real outcome arrives later as a **Paystack webhook** (`charge.success`, `transfer.success`, `refund.processed`, `charge.dispute.create`, …). `PaystackWebhookController` authenticates it, `PaystackEventDispatcher` normalises it into a domain event, and the owning service handles that event **after the inbound transaction commits** — the *only* place a status is allowed to settle.
 3. **Converge idempotently.** Webhooks can be missed, delayed, or delivered out of order. Scheduled **reconcilers** re-poll Paystack for any row stuck non-terminal and drive it to its true outcome. Because every settling action is keyed by an **idempotency key**, a webhook and a reconciler racing to settle the same event converge to the same result — whichever lands first wins, the second is a no-op.
 
-The payoff: the request path stays fast, the system is correct even when webhooks are lost (Paystack retries non-2xx for ~72h, and our reconcilers re-poll on top), and replays are safe by construction — we can retry aggressively without double-charging, double-paying, or double-posting.
+The payoff: the request path stays fast, the system is correct even when webhooks are lost (Paystack retries non-200 for ~72h, and our reconcilers re-poll on top), and replays are safe by construction — we can retry aggressively without double-charging, double-paying, or double-posting.
 
 ## The escrow lifecycle end to end
 
@@ -123,7 +123,7 @@ Settled charges produce buyer-facing **receipt** PDFs; refunds and lost chargeba
 These hold across the whole subsystem. Changing any of them without understanding why is how money goes missing.
 
 - **Settle only via the async seam.** A non-terminal status (`PENDING`/`PROCESSING`/`DISPUTED`) is flipped to a terminal one **only** by a webhook or reconciler handler running *after* the inbound transaction commits — never inside the initiating synchronous request. This is the structural enforcement of the mental model above.
-- **Raw-byte HMAC, always-200 webhook.** The Paystack signature is verified over the *exact raw request bytes* — re-serialising the JSON would reorder keys and break the HMAC-SHA512. Once authenticated, the endpoint always returns 200; downstream failures are logged, not surfaced, because Paystack retries non-2xx for ~72h and the reconciler is the backstop.
+- **Raw-byte HMAC, always-200 webhook.** The Paystack signature is verified over the *exact raw request bytes* — re-serialising the JSON would reorder keys and break the HMAC-SHA512. Once authenticated, the endpoint always returns 200; downstream failures are logged, not surfaced, because Paystack retries non-200 for ~72h and the reconciler is the backstop.
 - **Append-only ledger.** The double-entry ledger is never mutated in place. Corrections are new balanced postings. Every money event posts a balanced set of lines.
 - **Money is never negative.** `Money`'s constructor throws on a negative amount and normalises to scale 2 (`HALF_UP`). Signed movement is expressed by ledger *direction* (DEBIT/CREDIT), not by a negative amount.
 - **The gateway fee is never reversed.** Refunds and lost chargebacks do not reverse the `GATEWAY_FEES` line; the platform absorbs the fee.
@@ -136,6 +136,7 @@ Financial endpoints gate on a small set of platform permissions (all funnel thro
 | Permission | Guards |
 | --- | --- |
 | `PLATFORM::FINANCIAL::VIEW` | ledger inspection, the reconciliation report, admin receipt/credit-note detail |
+| `PLATFORM::FINANCIAL::MANAGE` | the money-mutating admin endpoints — disbursing payouts, initiating refunds, and chargeback write-offs |
 | `PLATFORM::DISPUTE::VIEW` | the chargeback / dispute-defense admin queue |
 | `PLATFORM::DISPUTE::RESOLVE` | resolving a dispute (manual override of the auto-defense) |
 

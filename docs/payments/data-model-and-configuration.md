@@ -186,7 +186,7 @@ Notable columns: `attempt_number`, per-attempt `amount`, `channel` (CHECK `ck_pa
 
 ### `transfer_recipients` — Paystack payout destination per farm
 
-`model/farm/TransferRecipient.java`. Derived on demand from `farm_payout_details`; `provider_ref` holds the Paystack recipient code (`RCP_...`). The partial-unique ACTIVE index keeps at most one live recipient per `(farm, provider, channel)` while preserving `DEACTIVATED` history rows. `channel` is a `PayoutChannel` (`model/farm/PayoutChannel.java`): `MOBILE_MONEY · BANK`; `status` is `TransferRecipientStatus`: `ACTIVE · DEACTIVATED`. Channel-dependent identifier columns (`bank_code`/`account_number` vs `momo_provider`/`momo_number`) are enforced by CHECK `transfer_recipients_channel_fields`.
+`model/payment/TransferRecipient.java`. Derived on demand from `farm_payout_details`; `provider_ref` holds the Paystack recipient code (`RCP_...`). The partial-unique ACTIVE index keeps at most one live recipient per `(farm, provider, channel)` while preserving `DEACTIVATED` history rows. `channel` is a `PayoutChannel` (`model/farm/PayoutChannel.java`): `MOBILE_MONEY · BANK`; `status` is `TransferRecipientStatus`: `ACTIVE · DEACTIVATED`. Channel-dependent identifier columns (`bank_code`/`account_number` vs `momo_provider`/`momo_number`) are enforced by CHECK `transfer_recipients_channel_fields`.
 
 ### `farm_payout_details` — 1:1 destination of record per farm
 
@@ -239,11 +239,11 @@ The settlement-lag math is canonical in [Reconciliation](reconciliation.md).
 
 ### `receipts` — proof-of-payment (1:1 with order)
 
-`model/payment/Receipt.java`, table `receipts` (originally `invoices` in V61; renamed in V74). Issued already-PAID at settlement — there is no ISSUED/OVERDUE state (dropped in V75). Notable columns: `receipt_number VARCHAR(40)` **UNIQUE** (`RCP-` prefix, rebranded from `INV-` in V74), `order_id` FK **UNIQUE** (one receipt per order), the money snapshot (`subtotal_amount`/`tax_amount`/`commission_amount`/`total_amount`), `payment_method` (`ReceiptPaymentMethod`: `CARD · MOBILE_MONEY · BANK_TRANSFER · CASH · OTHER`), `pdf_s3_key`, and `refunded BOOLEAN NOT NULL DEFAULT false` — a denormalized cache set when a refund processes (V76), indexed for the `?refunded=` filter. The document flow is in [Receipts & credit notes](receipts-and-credit-notes.md).
+`model/receipt/Receipt.java`, table `receipts` (originally `invoices` in V61; renamed in V74). Issued already-PAID at settlement — there is no ISSUED/OVERDUE state (dropped in V75). Notable columns: `receipt_number VARCHAR(40)` **UNIQUE** (`RCP-` prefix, rebranded from `INV-` in V74), `order_id` FK **UNIQUE** (one receipt per order), the money snapshot (`subtotal_amount`/`tax_amount`/`commission_amount`/`total_amount`), `payment_method` (`ReceiptPaymentMethod`: `CARD · MOBILE_MONEY · BANK_TRANSFER · CASH · OTHER`), `pdf_s3_key`, and `refunded BOOLEAN NOT NULL DEFAULT false` — a denormalized cache set when a refund processes (V76), indexed for the `?refunded=` filter. The document flow is in [Receipts & credit notes](receipts-and-credit-notes.md).
 
 ### `credit_notes` — counter-document to a receipt (1:1)
 
-`model/payment/CreditNote.java`, table `credit_notes` (V78). Issued when a payment is reversed. The **UNIQUE `receipt_id`** is the idempotency + concurrency guard — a webhook replay or the refund reconciler hitting the same receipt cannot create a second row. Carries `credit_note_number VARCHAR(40)` **UNIQUE**, `receipt_id` FK **UNIQUE**, `refund_id` FK → `refunds` (NULL for chargeback-origin notes), `origin VARCHAR(20)` (`CreditNoteOrigin`: `REFUND · CHARGEBACK`; CHECK `ck_credit_notes_origin`), a money snapshot mirroring the receipt, `reason`, `issued_at`, and `pdf_s3_key`. All five parent FKs cascade on delete (V79).
+`model/creditnote/CreditNote.java`, table `credit_notes` (V78). Issued when a payment is reversed. The **UNIQUE `receipt_id`** is the idempotency + concurrency guard — a webhook replay or the refund reconciler hitting the same receipt cannot create a second row. Carries `credit_note_number VARCHAR(40)` **UNIQUE**, `receipt_id` FK **UNIQUE**, `refund_id` FK → `refunds` (NULL for chargeback-origin notes), `origin VARCHAR(20)` (`CreditNoteOrigin`: `REFUND · CHARGEBACK`; CHECK `ck_credit_notes_origin`), a money snapshot mirroring the receipt, `reason`, `issued_at`, and `pdf_s3_key`. All five parent FKs cascade on delete (V79).
 
 ### Order-side money snapshots: `orders`, `order_commissions`, `order_taxes`, `fees`
 
@@ -252,15 +252,15 @@ These are the per-order **immutable** records computed at order time (see [Immut
 - **`orders`** (`model/order/Order.java`) — payment-relevant columns only: `status` (`OrderStatus`), `payment_method` (`PaymentMethod`: `ONLINE · POD`, V72), `currency` (V66), `subtotal`, `total_amount`, `refund_due` (BOOLEAN, V70), `cancelled_by` (`CancellationSide`: `BUYER · FARMER · ADMIN`). `OrderStatus` carries the pre-payment `AWAITING_PAYMENT` state (V66) ahead of `PENDING · ACCEPTED · PROCESSING · READY_FOR_PICKUP · IN_TRANSIT · DELIVERED · CANCELLED`. The V3 columns `commission_rate`/`commission_amount`/`net_farmer_amount` were dropped in V12 (moved to `order_commissions`); the legacy `delivery_fee`/`tax_amount` columns left by V47 are no longer mapped by the entity.
 - **`order_commissions`** (`model/order/OrderCommission.java`, V12): immutable per-order commission snapshot — `rule_id` (FK → `commission_rates`, nullable), `rule_code`, `rate NUMERIC(5,4)`, `base_amount`, `commission_amount`, `applied_at`. Never recomputed from `commission_rates`.
 - **`order_taxes`** (`model/order/OrderTax.java`, V13): one row per `(tax_type × basis)` — `tax_type` (`TaxType`), `basis` (`TaxBasis`: `COMMISSION · DELIVERY · ITEMS`), `tax_code` (free-string snapshot; the calculator emits the bare levy name, e.g. `NHIL`), `rate NUMERIC(5,4)`, `base_amount`, `tax_amount`, `applied_at`. **`TaxType` is now `NHIL · GETFUND · COVID_LEVY` — `VAT` was removed** (see below).
-- **`fees`** (`model/payment/Fee.java`, V7): per-order fee audit ledger — `fee_type` (`FeeType`: `COMMISSION · DELIVERY · PROCESSING`), `amount`, `rate`, `description`.
+- **`fees`** (`model/fee/Fee.java`, V7): per-order fee audit ledger — `fee_type` (`FeeType`: `COMMISSION · DELIVERY · PROCESSING`), `amount`, `rate`, `description`.
 
 ### `commission_rates` — the global/per-farm rate catalog
 
-`model/payment/CommissionRate.java` (V8). `farm_id` nullable (NULL = platform default), `rate NUMERIC(5,2)`, `effective_from`/`effective_to` (`LocalDate`), `set_by` FK → `users`. V8 seeds the platform default: `rate = 10.00`, `farm_id = NULL`. This is mutable catalog data; orders snapshot the applied value into `order_commissions` at placement time.
+`model/commission/CommissionRate.java` (V8). `farm_id` nullable (NULL = platform default), `rate NUMERIC(5,2)`, `effective_from`/`effective_to` (`LocalDate`), `set_by` FK → `users`. V8 seeds the platform default: `rate = 10.00`, `farm_id = NULL`. This is mutable catalog data; orders snapshot the applied value into `order_commissions` at placement time.
 
 ### `deliveries` (payment-side note only)
 
-`model/order/Delivery.java` (V3), 1:1 with order. Relevant to payments only because `mark-delivered` flips `DeliveryStatus`/`Order.deliveredAt`, which enables payout eligibility. `DeliveryStatus`: `PENDING · ASSIGNED · PICKED_UP · IN_TRANSIT · DELIVERED · FAILED`. The full lifecycle is out of scope here.
+`model/delivery/Delivery.java` (V3), 1:1 with order. Relevant to payments only because `mark-delivered` flips `DeliveryStatus`/`Order.deliveredAt`, which enables payout eligibility. `DeliveryStatus`: `PENDING · ASSIGNED · PICKED_UP · IN_TRANSIT · DELIVERED · FAILED`. The full lifecycle is out of scope here.
 
 ---
 

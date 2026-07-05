@@ -1,6 +1,6 @@
 # Money, pricing, tax & commission
 
-This is *the numbers*. Where [the payments overview](index.md) gives you the mental model and the flows, this page nails down exactly how an order total decomposes — gross to the buyer, net to the farmer, the platform's commission, and the Ghana statutory levies — and the value type (`Money`) that every cash figure flows through. It is the canonical home for the rounding rules, the levy math, the commission resolution, the **snapshot-at-placement** principle, and fee incidence.
+This is *the numbers*. Where [the payments overview](index.md) gives you the mental model and the flows, this page nails down exactly how an order total decomposes — gross to the buyer, net to the farmer, the platform's commission, and the Ghana statutory levies — and the value type (`Money`) that carries cash across the provider/gateway boundary. It is the canonical home for the rounding rules, the levy math, the commission resolution, the **snapshot-at-placement** principle, and fee incidence.
 
 Two load-bearing ideas anchor everything below:
 

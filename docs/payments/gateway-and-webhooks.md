@@ -429,7 +429,7 @@ The key comes from `effectiveWebhookSigningSecret()`, which falls back to the ac
 
 Once a request is authenticated (gate 3 passes), the controller **always returns `200`** — even if parsing or dispatch fails. This rests on two backstops:
 
-- **Paystack retries non-2xx for up to ~72h.** If we returned `5xx` on a transient downstream failure, Paystack would redeliver. But our settlements are idempotent (FOR-UPDATE lock + terminal-state check on every convergence path), so redelivery is *safe but not required*. Swallowing-and-200 avoids amplifying our own incident into a retry storm while the system is already degraded.
+- **Paystack retries non-200 for up to ~72h.** If we returned `5xx` on a transient downstream failure, Paystack would redeliver. But our settlements are idempotent (FOR-UPDATE lock + terminal-state check on every convergence path), so redelivery is *safe but not required*. Swallowing-and-200 avoids amplifying our own incident into a retry storm while the system is already degraded.
 - **The reconciler is the durable backstop.** Even if a webhook is permanently lost, the periodic [reconcilers](reconciliation.md) re-poll Paystack and converge each pending payment/payout/refund. The webhook is the *fast path*; the reconciler is the *correctness guarantee*.
 
 The `log.error("... — reconciler will recover", ...)` on a dispatch failure encodes exactly this: surface the failure to operators, but not to Paystack.

@@ -5,7 +5,7 @@ Webhooks are the fast path; reconciliation is the durable backstop. CropDoor's p
 - The **float reconciliation report** asks: *does our book agree with Paystack's money position right now?* It is an aggregate sweep that compares the `PLATFORM_FLOAT` ledger balance against Paystack's reported balance, records an append-only snapshot, and alerts on drift. It is **alert-only** — it never self-heals and never gates payouts.
 - The **four webhook-miss reconcilers** ask: *did any single charge, payout, refund, or checkout get stuck because its terminal webhook was lost?* Each is a per-row backstop that re-polls the provider and re-drives the stuck row to its terminal state through the **same idempotent, locked settlement path the live webhook uses** — so a dropped HTTP callback can never strand money or inventory forever.
 
-This page specifies both layers: the residual identity exactly, the T+1 settlement lag both account for, the HTTP-outside-transaction split they rely on, the grace windows, and the no-double-settle invariant.
+This page specifies both layers: the residual identity exactly, the T+1 settlement lag the float sweep accounts for, the HTTP-outside-transaction split they both rely on, the grace windows, and the no-double-settle invariant.
 
 !!! note "One-character config trap"
     `cropdoor.payments.reconcili**ation**` is the float sweep. `cropdoor.payments.reconcil**er**` is the four backstops. They are unrelated switches. Read carefully.
