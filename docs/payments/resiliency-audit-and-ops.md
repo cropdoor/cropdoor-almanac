@@ -310,8 +310,8 @@ All codes are declared as constants on `security/Permissions.java` (never inline
 |---|---|
 | `PLATFORM::FINANCIAL::VIEW` | Read platform finances: payout/refund/receipt/credit-note lists, ledger trial balance, transactions, reconciliation snapshots/history — **and** running an on-demand reconciliation |
 | `PLATFORM::FINANCIAL::MANAGE` | Move/reverse money: disburse, retry payout, initiate refund, write off a chargeback clawback |
-| `PLATFORM::DISPUTE::VIEW` | List the live Paystack chargeback-dispute review queue |
-| `PLATFORM::DISPUTE::RESOLVE` | Contest / concede a Paystack chargeback dispute |
+| `PLATFORM::CHARGEBACK::VIEW` | List the live Paystack chargeback-dispute review queue |
+| `PLATFORM::CHARGEBACK::RESOLVE` | Contest / concede a Paystack chargeback dispute |
 | `PLATFORM::ORDER::CANCEL` | Admin-cancel a non-terminal order (may trigger a refund) |
 | `FARM::FINANCIAL::VIEW` | Read a farm's revenue, payout details (masked), receipts, credit notes |
 | `FARM::FINANCIAL::UPDATE` | Set the farm's payout destination (mobile money / bank) |
@@ -335,9 +335,9 @@ Two gating mechanisms are in play. **`hasAuthority('<code>')`** is a flat author
 | `POST /v1/admin/payments/{paymentId}/refund` | `AdminRefundController` | `PLATFORM::FINANCIAL::MANAGE` | `hasAuthority` |
 | `GET /v1/admin/refunds` | `AdminRefundController` | `PLATFORM::FINANCIAL::VIEW` | `hasAuthority` |
 | `POST /v1/admin/chargebacks/{paymentId}/write-off` | `AdminChargebackController` | `PLATFORM::FINANCIAL::MANAGE` | `hasAuthority` |
-| `GET /v1/admin/disputes` | `AdminDisputeController` | `PLATFORM::DISPUTE::VIEW` | `hasAuthority` |
-| `POST /v1/admin/disputes/{disputeId}/contest` | `AdminDisputeController` | `PLATFORM::DISPUTE::RESOLVE` | `hasAuthority` |
-| `POST /v1/admin/disputes/{disputeId}/concede` | `AdminDisputeController` | `PLATFORM::DISPUTE::RESOLVE` | `hasAuthority` |
+| `GET /v1/admin/disputes` | `AdminDisputeController` | `PLATFORM::CHARGEBACK::VIEW` | `hasAuthority` |
+| `POST /v1/admin/disputes/{disputeId}/contest` | `AdminDisputeController` | `PLATFORM::CHARGEBACK::RESOLVE` | `hasAuthority` |
+| `POST /v1/admin/disputes/{disputeId}/concede` | `AdminDisputeController` | `PLATFORM::CHARGEBACK::RESOLVE` | `hasAuthority` |
 | `GET /v1/admin/ledger/balances` | `AdminLedgerController` | `PLATFORM::FINANCIAL::VIEW` | `hasAuthority` |
 | `GET /v1/admin/ledger/transactions` | `AdminLedgerController` | `PLATFORM::FINANCIAL::VIEW` | `hasAuthority` |
 | `GET /v1/admin/ledger/reconciliation` (+ `/history`) | `AdminLedgerController` | `PLATFORM::FINANCIAL::VIEW` | `hasAuthority` |
@@ -558,18 +558,18 @@ flowchart TD
 
 Live chargebacks surface via `charge.dispute.create` → `ChargebackOpenedEvent`; `charge.dispute.remind` is logged when Paystack wants feedback. Two response paths:
 
-- **Automated defense** (`DisputeDefenseJob` → `DisputeDefenseService#defendBatch`): scans disputes awaiting our feedback and submits the delivery receipt as evidence. Gated by `cropdoor.payments.dispute-defense.enabled` (**off by default**), `cron=0 0 * * * *` (hourly, must beat Paystack's 16h auto-accept SLA), `lookback=P7D`.
+- **Automated defense** (`ChargebackDefenseJob` → `ChargebackDefenseService#defendBatch`): scans disputes awaiting our feedback and submits the delivery receipt as evidence. Gated by `cropdoor.payments.chargeback-defense.enabled` (**off by default**), `cron=0 0 * * * *` (hourly, must beat Paystack's 16h auto-accept SLA), `lookback=P7D`.
 - **Manual write-off** when a chargeback is lost and the clawback is unrecoverable: `POST /v1/admin/chargebacks/{paymentId}/write-off {"reason":"…"}` books the loss (409 if there is nothing to write off).
 
 !!! info "Two unrelated 'dispute' concepts"
-    `PLATFORM::DISPUTE::*` and the chargeback endpoints operate on **live Paystack chargeback disputes**. This is unrelated to the unwired in-app `model/dispute/*` entity (a planned buyer/farmer dispute feature). See the [roadmap](../architecture/roadmap.md).
+    `PLATFORM::CHARGEBACK::*` and the chargeback endpoints operate on **live Paystack chargeback disputes**. This is unrelated to the unwired in-app `model/dispute/*` entity (a planned buyer/farmer dispute feature). See the [roadmap](../architecture/roadmap.md).
 
 ### Payments go-live checklist
 
 | # | Item | Config / surface | Build state |
 |---|---|---|---|
 | 1 | **Transfer-OTP disabled** on the Paystack account | Dashboard (ops, not code) | Done on test; ops step before any payout |
-| 2 | **Dispute-defense automation** | `cropdoor.payments.dispute-defense.enabled=true` + cron | Built; **off by default**, opt in per env |
+| 2 | **Dispute-defense automation** | `cropdoor.payments.chargeback-defense.enabled=true` + cron | Built; **off by default**, opt in per env |
 | 3 | **PLATFORM_FLOAT ↔ Paystack reconciliation** | `cropdoor.payments.reconciliation.enabled=true` + `cron=0 0 2 * * *` | Service + admin reads/run built; scheduled job **off by default** |
 | 4 | **Payout funding guard** | `payout.payout-fee-buffer` + `InsufficientPlatformFloatException` | **Built** — enforced in `PayoutServiceImpl#disburse` |
 | — | Charge/payout/refund reconcilers | `cropdoor.payments.reconciler.enabled` | **Built**, default **on** (off only in the test profile) |

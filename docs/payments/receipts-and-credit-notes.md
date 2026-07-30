@@ -154,7 +154,7 @@ A credit note is cut on **either** of the two payment-reversal paths. Both first
 Both delegate to the private `CreditNoteService#issue(receipt, origin, refund, reason)`, which snapshots the receipt's amounts into a new `CreditNote` numbered `CN-<orderNumber>`, persists it, emits the dual-sided audit, and schedules the PDF after-commit — exactly mirroring receipt issuance.
 
 !!! note "Two unrelated 'dispute' concepts"
-    The credit note's CHARGEBACK path is driven by a live **Paystack chargeback** (a card-network dispute the `PLATFORM::DISPUTE` endpoints operate on). It is **not** the unwired in-app `model/dispute/*` entity — a planned buyer/farmer dispute feature that is a [roadmap surface](../architecture/roadmap.md).
+    The credit note's CHARGEBACK path is driven by a live **Paystack chargeback** (a card-network dispute the `PLATFORM::CHARGEBACK` endpoints operate on). It is **not** the unwired in-app `model/dispute/*` entity — a planned buyer/farmer dispute feature that is a [roadmap surface](../architecture/roadmap.md).
 
 ## Idempotency & concurrency
 
@@ -294,7 +294,7 @@ Every farm/buyer-scoped emission **must** carry both `KEY_OWNER_TYPE` and `KEY_O
 
 ## Receipt PDF reused as dispute evidence
 
-When CropDoor defends a Paystack chargeback, the receipt PDF is uploaded to Paystack as proof of a delivered, paid order. `DisputeDefenseTransactionalSteps` re-renders it **storelessly** — it does not depend on the stored S3 object. It loads the receipt via `receiptRepository.findByOrder_Id(order.getId())` (a `null` result means there is no evidence to attach), then calls `ReceiptDocumentService#renderPdf(receipt)` directly to get the PDF bytes.
+When CropDoor defends a Paystack chargeback, the receipt PDF is uploaded to Paystack as proof of a delivered, paid order. `ChargebackDefenseTransactionalSteps` re-renders it **storelessly** — it does not depend on the stored S3 object. It loads the receipt via `receiptRepository.findByOrder_Id(order.getId())` (a `null` result means there is no evidence to attach), then calls `ReceiptDocumentService#renderPdf(receipt)` directly to get the PDF bytes.
 
 `renderPdf` is the **store-free** half of the document service: it loads the order's line items + tax lines and renders bytes, with no S3 read or `pdf_s3_key` dependency. Because the renderer is deterministic — amounts and parties are snapshotted on the receipt, formatting is fixed — the evidence PDF is byte-reproducible from the row at any time, even if the post-commit upload had been swallowed. The dispute-defense flow is documented in [Core flows](core-flows.md).
 

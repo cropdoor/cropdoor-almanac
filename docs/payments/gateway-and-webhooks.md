@@ -26,7 +26,7 @@ Keeping them as separate interfaces with separate beans is deliberate:
 ```mermaid
 flowchart LR
     subgraph services["Payment services (provider-agnostic)"]
-        chargeSide["PaymentServiceImpl<br/>RefundServiceImpl<br/>RefundReconciler<br/>DisputeDefenseService"]
+        chargeSide["PaymentServiceImpl<br/>RefundServiceImpl<br/>RefundReconciler<br/>ChargebackDefenseService"]
         transferSide["PayoutServiceImpl<br/>PayoutReconciler<br/>PlatformFloatReconciliationServiceImpl"]
     end
     registry["PaymentGatewayRegistry"]
@@ -55,11 +55,11 @@ flowchart LR
 | `verifyCharge(String providerReference)` | `ChargeVerification` | Looks up the current charge state by our reference. **Idempotent** — safe to re-poll; recovers a lost `charge.success` webhook. | `PaymentServiceImpl` |
 | `refund(RefundRequest)` | `RefundResult` | Initiates a refund against a completed charge. **Asynchronous** — the terminal state arrives by webhook (`refund.processed` / `refund.failed`). | `RefundServiceImpl` |
 | `verifyRefund(String transactionReference)` | `RefundVerification` | Re-polls a refund by the **original charge's** transaction reference. **Idempotent**; recovers a lost refund webhook. | `RefundReconciler` |
-| `listDisputes(String status, Instant from, Instant to)` | `List<DisputeSummary>` | Lists provider disputes (bank chargebacks) in a status window. Empty list when none. | `DisputeDefenseService` |
-| `getDisputeUploadUrl(String disputeId, String filename)` | `DisputeUploadTarget` | Short-lived signed URL to upload evidence; fetched immediately before each upload because it expires quickly. | `DisputeDefenseService` |
-| `uploadEvidence(String signedUrl, byte[] bytes, String contentType)` | `void` | PUTs evidence bytes to the provider's **storage host**, not the API base URL. | `DisputeDefenseService` |
-| `addFraudEvidence(String disputeId, DisputeFraudEvidence)` | `String` | Submits structured fraud evidence; returns the evidence id to echo on resolve. | `DisputeDefenseService` |
-| `resolveDispute(DisputeResolution)` | `void` | Resolves a dispute: a decline attaches uploaded evidence, a concede carries the refund amount. | `DisputeDefenseService` |
+| `listDisputes(String status, Instant from, Instant to)` | `List<DisputeSummary>` | Lists provider disputes (bank chargebacks) in a status window. Empty list when none. | `ChargebackDefenseService` |
+| `getDisputeUploadUrl(String disputeId, String filename)` | `DisputeUploadTarget` | Short-lived signed URL to upload evidence; fetched immediately before each upload because it expires quickly. | `ChargebackDefenseService` |
+| `uploadEvidence(String signedUrl, byte[] bytes, String contentType)` | `void` | PUTs evidence bytes to the provider's **storage host**, not the API base URL. | `ChargebackDefenseService` |
+| `addFraudEvidence(String disputeId, DisputeFraudEvidence)` | `String` | Submits structured fraud evidence; returns the evidence id to echo on resolve. | `ChargebackDefenseService` |
+| `resolveDispute(DisputeResolution)` | `void` | Resolves a dispute: a decline attaches uploaded evidence, a concede carries the refund amount. | `ChargebackDefenseService` |
 
 The three "verify/re-poll" methods (`verifyCharge`, `verifyRefund`, and on the transfer side `verifyTransfer`) are the recovery mechanism for lost webhooks: they read provider truth without mutating it, so a reconciler can call them as often as needed. There is **no `@Retryable`** on any gateway method — retry is delegated to the reconcilers plus Paystack's ~72-hour webhook redelivery (see [resiliency, audit & ops](resiliency-audit-and-ops.md)).
 

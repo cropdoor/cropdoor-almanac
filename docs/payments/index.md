@@ -66,7 +66,7 @@ A few rules that fall out of this table:
 
 - **Only `ONLINE` payments are refundable.** POD never touched Paystack, so there is nothing to refund online.
 - **Payouts wait for a clearance window.** After delivery, a farmer's proceeds are held for `cropdoor.payments.payout.clearance-window` (default `P7D`; `PT5M` locally) before they become disbursable — and for the cash itself to settle to the platform balance (Paystack settles a charge T+1, roughly one business day later).
-- **Chargebacks freeze, then resolve.** A dispute moves the payment to `DISPUTED`; winning returns it to `COMPLETED`, losing drives it to `REVERSED` and posts the loss. **Dispute-defense** (`service/payment/DisputeDefense*`) auto-submits the order's delivery evidence to Paystack to contest chargebacks, gated by the `PLATFORM::DISPUTE` permission domain.
+- **Chargebacks freeze, then resolve.** A dispute moves the payment to `DISPUTED`; winning returns it to `COMPLETED`, losing drives it to `REVERSED` and posts the loss. **Dispute-defense** (`service/payment/ChargebackDefense*`) auto-submits the order's delivery evidence to Paystack to contest chargebacks, gated by the `PLATFORM::CHARGEBACK` permission domain.
 
 ## The double-entry ledger
 
@@ -137,8 +137,8 @@ Financial endpoints gate on a small set of platform permissions (all funnel thro
 | --- | --- |
 | `PLATFORM::FINANCIAL::VIEW` | ledger inspection, the reconciliation report, admin receipt/credit-note detail |
 | `PLATFORM::FINANCIAL::MANAGE` | the money-mutating admin endpoints — disbursing payouts, initiating refunds, and chargeback write-offs |
-| `PLATFORM::DISPUTE::VIEW` | the chargeback / dispute-defense admin queue |
-| `PLATFORM::DISPUTE::RESOLVE` | resolving a dispute (manual override of the auto-defense) |
+| `PLATFORM::CHARGEBACK::VIEW` | the chargeback-defense admin queue |
+| `PLATFORM::CHARGEBACK::RESOLVE` | contesting or conceding a chargeback (manual override of the auto-defense) |
 
 ## In this section
 

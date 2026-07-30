@@ -5,7 +5,7 @@ This is the deep reference for the four money movements the payment subsystem ac
 Read this page when you need the mechanics: the exact endpoints, the status transitions, which webhook settles what, the idempotency keys, and the gotchas that keep money from being charged twice, paid twice, or lost. The flows live under `service/payment/` (with `event/`, `gateway/`, and `ledger/` sub-packages); webhook ingress is `controller/webhook/PaystackWebhookController.java` + `PaystackEventDispatcher`. Every double-entry posting these flows make is detailed in [the ledger](ledger.md); the webhook authentication and settlement seam is in [gateway & webhooks](gateway-and-webhooks.md).
 
 !!! info "Two unrelated things are both called 'dispute'"
-    The `PLATFORM::DISPUTE::*` permissions and the [dispute-defense](#dispute-defense) flow operate on **live Paystack chargebacks** (`charge.dispute.*` webhooks). They have nothing to do with the in-app `model/dispute/Dispute` entity, which is unwired scaffolding — a table with no controller, service, or repository. When this page says "dispute," it means the Paystack chargeback.
+    The `PLATFORM::CHARGEBACK::*` permissions and the [dispute-defense](#dispute-defense) flow operate on **live Paystack chargebacks** (`charge.dispute.*` webhooks). They have nothing to do with the in-app `model/dispute/Dispute` entity, which is unwired scaffolding — a table with no controller, service, or repository. When this page says "dispute," it means the Paystack chargeback.
 
 ---
 
@@ -566,7 +566,7 @@ This is the **outbound** defense layer: it moves no money in our ledger, it only
 
 ```mermaid
 flowchart TD
-    Cron["DisputeDefenseJob cron tick"] --> Defend["defendBatch()"]
+    Cron["ChargebackDefenseJob cron tick"] --> Defend["defendBatch()"]
     Defend --> List["chargeGateway.listDisputes(<br/>'awaiting-merchant-feedback', now − lookback, now)"]
     List --> Loop{for each DisputeSummary}
     Loop --> Mat["materialize(transactionReference)"]
@@ -585,20 +585,20 @@ flowchart TD
 
 The asymmetry is the whole point. A *delivered* order is a strong, mechanical case — we have a receipt proving fulfilment, so contesting is safe to automate. An *undelivered* order might genuinely be the buyer's money to reclaim; auto-contesting there would defend fraud against our own buyers, so the job **never auto-concedes and never auto-contests the undelivered**.
 
-`DisputeDefenseJob` is gated by `@ConditionalOnProperty("cropdoor.payments.dispute-defense.enabled", havingValue = "true")` — **off by default**, opt-in per env, so the feature is inert anywhere (including prod) that doesn't set it. Under `provider=noop`, `listDisputes(...)` returns an empty list, so the batch is a clean no-op in dev/test. Each dispute is handled inside its own `try/catch (RuntimeException)`: one bad dispute (missing receipt, gateway hiccup) is logged and skipped, and is retried next tick while it stays `awaiting-merchant-feedback`.
+`ChargebackDefenseJob` is gated by `@ConditionalOnProperty("cropdoor.payments.chargeback-defense.enabled", havingValue = "true")` — **off by default**, opt-in per env, so the feature is inert anywhere (including prod) that doesn't set it. Under `provider=noop`, `listDisputes(...)` returns an empty list, so the batch is a clean no-op in dev/test. Each dispute is handled inside its own `try/catch (RuntimeException)`: one bad dispute (missing receipt, gateway hiccup) is logged and skipped, and is retried next tick while it stays `awaiting-merchant-feedback`.
 
 ### The materialize / HTTP split
 
 Every action runs in two phases, mirroring the rest of payments under `open-in-view=false`:
 
-1. **Materialize** (`DisputeDefenseTransactionalSteps.materialize`, `@Transactional(readOnly = true)`): loads the dispute's order graph inside an open session and flattens everything the gateway leg needs — delivery state, the **re-rendered receipt PDF bytes**, and the structured fraud evidence — into a detached `MaterializedDispute` (primitives + `byte[]`, no entities, no proxies).
+1. **Materialize** (`ChargebackDefenseTransactionalSteps.materialize`, `@Transactional(readOnly = true)`): loads the dispute's order graph inside an open session and flattens everything the gateway leg needs — delivery state, the **re-rendered receipt PDF bytes**, and the structured fraud evidence — into a detached `MaterializedDispute` (primitives + `byte[]`, no entities, no proxies).
 2. **Gateway HTTP** (`contest` / `concede`): the `ChargeGateway` calls run **entirely outside** that transaction, against the materialized values.
 
 The mapping key is `paymentRepository.findByProviderRef(transactionReference)` — the dispute's `transactionReference` (our charge reference) matched against `Payment.providerRef`. No match ⇒ `Optional.empty()` ⇒ the dispute isn't ours. The receipt PDF is **re-rendered on demand** via `receiptDocumentService.renderPdf`, not fetched from a stored copy. A separate, lighter `reviewContext(transactionReference)` returns `(orderNumber, delivered, receiptPresent)` **without rendering the PDF** — listing dozens of disputes shouldn't render dozens of PDFs; the render is paid only on an actual contest.
 
 ```mermaid
 sequenceDiagram
-    participant Svc as DisputeDefenseService
+    participant Svc as ChargebackDefenseService
     participant Tx as TransactionalSteps
     participant DB as Postgres (read-only tx)
     participant GW as ChargeGateway (Paystack)
@@ -653,9 +653,9 @@ Once resolved, Paystack moves a dispute out of `awaiting-merchant-feedback`, so 
 
 | Method & path | Permission | Service |
 | --- | --- | --- |
-| `GET /v1/admin/disputes` | `PLATFORM::DISPUTE::VIEW` | `listForReview()` → `List<AdminDisputeRow>` |
-| `POST /v1/admin/disputes/{disputeId}/contest` | `PLATFORM::DISPUTE::RESOLVE` | `contestById(disputeId, admin)` |
-| `POST /v1/admin/disputes/{disputeId}/concede` | `PLATFORM::DISPUTE::RESOLVE` | `concedeById(disputeId, admin)` |
+| `GET /v1/admin/disputes` | `PLATFORM::CHARGEBACK::VIEW` | `listForReview()` → `List<AdminDisputeRow>` |
+| `POST /v1/admin/disputes/{disputeId}/contest` | `PLATFORM::CHARGEBACK::RESOLVE` | `contestById(disputeId, admin)` |
+| `POST /v1/admin/disputes/{disputeId}/concede` | `PLATFORM::CHARGEBACK::RESOLVE` | `concedeById(disputeId, admin)` |
 
 The contest/concede handlers thread `admin.getUser()` as the actor, distinguishing manual admin actions from the system job in the audit trail. `AdminDisputeRow` carries `disputeId, transactionReference, category, status, amount` (major units), `orderNumber` (null when unmappable), `delivered`, `receiptAvailable`, and `suggestedAction` (`CONTEST | CONCEDE | REVIEW`). **Listing is cheap by design** — it goes through the PDF-free `reviewContext`, deferring any render to an actual contest; mutations re-list live and materialize on demand, so the queue holds no state between requests.
 
@@ -665,10 +665,10 @@ The **only** signal that an undelivered dispute needs a human is the counter `cr
 
 | Config key | Default | Purpose |
 | --- | --- | --- |
-| `cropdoor.payments.dispute-defense.enabled` | `false` | master switch; off ⇒ `DisputeDefenseJob` bean not created |
-| `cropdoor.payments.dispute-defense.cron` | `0 0 * * * *` (hourly) | scan frequency — must beat the 16h auto-accept |
-| `cropdoor.payments.dispute-defense.lookback` | `P7D` | window: `from = now − lookback`, `to = now` |
-| `cropdoor.payments.dispute-defense.message` | `"Order delivered; receipt attached as evidence."` | decline message on resolve |
+| `cropdoor.payments.chargeback-defense.enabled` | `false` | master switch; off ⇒ `ChargebackDefenseJob` bean not created |
+| `cropdoor.payments.chargeback-defense.cron` | `0 0 * * * *` (hourly) | scan frequency — must beat the 16h auto-accept |
+| `cropdoor.payments.chargeback-defense.lookback` | `P7D` | window: `from = now − lookback`, `to = now` |
+| `cropdoor.payments.chargeback-defense.message` | `"Order delivered; receipt attached as evidence."` | decline message on resolve |
 
 The 7-day lookback is generous relative to the 16h SLA: even after a job outage, every dispute opened in the past week is re-examined on the next run, so a missed tick self-heals.
 

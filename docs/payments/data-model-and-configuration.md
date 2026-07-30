@@ -197,7 +197,7 @@ Notable columns: `attempt_number`, per-attempt `amount`, `channel` (CHECK `ck_pa
 `model/payment/Refund.java`. One refund per payment (full refunds only); the service keys `idempotency_key` on the payment id so a re-initiation is a no-op. Born `PENDING`; the `refund.*` webhooks settle it to `PROCESSED` or `FAILED`. Columns of note: `payment_id`/`order_id` FKs, `provider_ref VARCHAR(120)`, `idempotency_key` **UNIQUE**, `reason VARCHAR(500)`, `initiated_by` FK → `users`, `gateway_payload` JSONB, and `status` (`RefundStatus`: `PENDING · PROCESSED · FAILED`; CHECK `ck_refunds_status`).
 
 !!! warning "Two unrelated 'dispute' concepts"
-    The V3 `disputes` table (`model/dispute/*`) is the **unwired in-app** order-dispute scaffold — a [roadmap surface](../architecture/roadmap.md). It is **not** the live Paystack chargeback that the `PLATFORM::DISPUTE` endpoints operate on; chargebacks flow through `payments.status = DISPUTED`/`REVERSED` and the ledger, not this table. See [Core flows](core-flows.md).
+    The V3 `disputes` table (`model/dispute/*`) is the **unwired in-app** order-dispute scaffold — a [roadmap surface](../architecture/roadmap.md). It is **not** the live Paystack chargeback that the `PLATFORM::CHARGEBACK` endpoints operate on; chargebacks flow through `payments.status = DISPUTED`/`REVERSED` and the ledger, not this table. See [Core flows](core-flows.md).
 
 ### `reconciliation_snapshots` — float-vs-Paystack drift record
 
@@ -387,7 +387,7 @@ Payment configuration is split across **five** `@ConfigurationProperties` binder
 | `service/payment/gateway/PaymentGatewaysProperties.java` | `cropdoor.payments` | Root tree — gateways/payout/order/reconciler |
 | `service/payment/gateway/paystack/PaystackProperties.java` | `cropdoor.payments.gateways.paystack` | Provider adapter config (nested) |
 | `service/payment/ReconciliationProperties.java` | `cropdoor.payments.reconciliation` | **off by default** |
-| `service/payment/DisputeDefenseProperties.java` | `cropdoor.payments.dispute-defense` | **off by default** |
+| `service/payment/ChargebackDefenseProperties.java` | `cropdoor.payments.chargeback-defense` | **off by default** |
 | `config/GhanaTaxProperties.java` | `cropdoor.tax` | always on (defaults baked in) |
 | `config/ReceiptStorageProperties.java` | `cropdoor.receipts` | required (blank bucket crashes boot) |
 
@@ -473,9 +473,9 @@ The scheduled **PLATFORM_FLOAT reconciliation** job. **Off by default** — `Rec
 
 The algorithm, the `listSettlements` pagination guard, and the T+1 settlement-lag premise are canonical in [Reconciliation](reconciliation.md).
 
-### Dispute-defense block — `cropdoor.payments.dispute-defense.*`
+### Dispute-defense block — `cropdoor.payments.chargeback-defense.*`
 
-The scheduled **chargeback dispute-defense** job. **Off by default** — `DisputeDefenseJob` is gated `@ConditionalOnProperty(havingValue = "true")`; kept dead in any env that doesn't enable it.
+The scheduled **chargeback dispute-defense** job. **Off by default** — `ChargebackDefenseJob` is gated `@ConditionalOnProperty(havingValue = "true")`; kept dead in any env that doesn't enable it.
 
 | Key | Default | Purpose |
 | --- | --- | --- |
@@ -534,7 +534,7 @@ flowchart LR
 
 - **Local (`local`).** `provider=noop` (the in-memory gateway — no real Paystack) and `clearance-window=PT5M` so payouts clear in minutes. To live-test real webhooks against the noop gateway, boot with a known `--cropdoor.payments.gateways.paystack.webhook-signing-secret=<known>` and self-POST HMAC-signed webhooks.
 - **Test (`test`).** `provider=noop`, `reconciler.enabled=false` (no schedulers in integration tests), `clearance-window=PT5M`, and dummy `secret-key=sk_test_dummy`/`webhook-signing-secret=sk_test_dummy` so HMAC verification has a deterministic key.
-- **Production.** Keep the base defaults: `provider=live`, `reconciler.enabled=true`. Supply secrets via env (`PAYSTACK_SECRET_KEY`, `PAYSTACK_PUBLIC_KEY` — the webhook secret derives automatically — `CROPDOOR_RECEIPTS_BUCKET` + scoped creds, `FRONTEND_URL`). To enable the two off-by-default schedulers, set `cropdoor.payments.reconciliation.enabled=true` and/or `cropdoor.payments.dispute-defense.enabled=true`.
+- **Production.** Keep the base defaults: `provider=live`, `reconciler.enabled=true`. Supply secrets via env (`PAYSTACK_SECRET_KEY`, `PAYSTACK_PUBLIC_KEY` — the webhook secret derives automatically — `CROPDOOR_RECEIPTS_BUCKET` + scoped creds, `FRONTEND_URL`). To enable the two off-by-default schedulers, set `cropdoor.payments.reconciliation.enabled=true` and/or `cropdoor.payments.chargeback-defense.enabled=true`.
 
 ### Feature-flag posture
 
