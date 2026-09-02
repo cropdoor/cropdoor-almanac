@@ -140,6 +140,8 @@ nav:
       - Overview: audit/index.md
   - Domain:
       - Overview: domain/index.md
+      - Order → delivery flow: domain/order-delivery-flow.md
+      - Order → delivery, for operations: domain/order-delivery-flow-for-operations.md
   - Payments:
       - Overview: payments/index.md
       - Money, pricing, tax & commission: payments/money-model.md
