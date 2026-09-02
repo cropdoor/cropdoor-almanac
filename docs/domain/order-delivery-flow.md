@@ -2,7 +2,7 @@
 
 *Engineering version. The [operations version](order-delivery-flow-for-operations.md) tells the same story without identifiers, for people who run the business.*
 
-The whole flow — who acts, what moves, where money attaches, what is stored — drawn once so the team can argue over the mechanism rather than the prose. Six decisions at the end. Nothing is built until they are settled.
+The whole flow — who acts, what moves, where money attaches, what is stored — drawn once so the team can argue over the mechanism rather than the prose. This is an open conversation to get the whole flow down before anything is built; the questions at the end are the ones engineering has hit so far, and the list is expected to grow as Operations adds theirs.
 
 Grounded against `develop` after #221 (cancellation disposition) and #222 (agent pickup), September 2026.
 
@@ -232,11 +232,11 @@ flowchart TD
     B -->|yes| C[COMPLETED<br/>the van rolled, even if all were later cancelled]
 ```
 
-**Derived over `pickup_time`, not status ordinals** — `CANCELLED` sorts after `IN_TRANSIT` in the enum, so "any order past IN_TRANSIT" would call a run with one pre-pickup cancellation "in progress". Two consequences are behaviour changes and are listed as decisions below: a run re-opened by a new order after completion reads `IN_PROGRESS` rather than today's `PLANNED`, and `started_at` / `completed_at` go — they were a second stored copy of this same fact.
+**Derived over `pickup_time`, not status ordinals** — `CANCELLED` sorts after `IN_TRANSIT` in the enum, so "any order past IN_TRANSIT" would call a run with one pre-pickup cancellation "in progress". Two consequences are behaviour changes and are listed as open questions below: a run re-opened by a new order after completion reads `IN_PROGRESS` rather than today's `PLANNED`, and `started_at` / `completed_at` go — they were a second stored copy of this same fact.
 
-## Decisions for the team
+## Open questions so far
 
-Numbered because this is the agenda. Each has the evidence and a recommendation; none is made yet.
+Numbered for reference, not priority. Each has the evidence and, where the code has an opinion, a recommendation. None is decided, and this is the engineering side's list only — the operations page collects the other half.
 
 **1. Drop `deliveries` and `DeliveryStatus`; move `run_id` and `pickup_time` onto `orders`**
 
@@ -274,9 +274,9 @@ Replaces a flag that two services flip by hand with a query that already half-ex
 
 *Recommend yes.* This is the rule the backend's own guidelines already state: a transition that moves money reads the ledger, not a flag.
 
-## Build order, once settled
+## Build order, once the flow is finalised
 
-Five PRs, each mergeable on its own and each leaving `develop` deployable. Lighter gate: one review round on the design (done), targeted tests plus a clean verify per PR, mutations only where money or authorization is touched, one live verify after the big PR and one at the end.
+Provisional — it assumes today's answers to the questions above, and will be redrawn as the conversation changes them. Five PRs, each mergeable on its own and each leaving `develop` deployable. Lighter gate: one review round on the design (done), targeted tests plus a clean verify per PR, mutations only where money or authorization is touched, one live verify after the big PR and one at the end.
 
 | PR | Does | Why here |
 | --- | --- | --- |

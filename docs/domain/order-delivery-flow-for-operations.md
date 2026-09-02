@@ -2,7 +2,7 @@
 
 *For Operations and leadership. The [engineering version](order-delivery-flow.md) has the same content with the code attached.*
 
-What happens to an order from the moment a buyer places it to the moment the produce is in their hands — who does each step, where the money is at each moment, and what we're proposing to change. Written so you can push back on any of it.
+What happens to an order from the moment a buyer places it to the moment the produce is in their hands — who does each step, where the money is at each moment, and what we think should change. This is an open conversation: we're collecting how orders and deliveries actually work, from everyone who touches them, before the flow is finalised. Nothing here is decided, and the questions at the end are only the ones we've found so far.
 
 One thing to hold onto while reading: **CropDoor collects and delivers the produce. Farmers don't.** A farmer's job is to accept the order, pack it, and have it ready at the farm gate. From there it is our driver and our delivery agent who move it, and our team who record what happened. Most of what we're proposing to fix comes from the software not quite believing that.
 
@@ -38,7 +38,7 @@ Five roles. Each one can do a small, specific set of things, and nothing else.
 | **Admin / Ops** | Put a driver and delivery agent on an order. Cancel any order — and if the produce has already left the farm, say where it ended up. Step in and record a pickup or hand-over when the agent can't; every step-in is logged as one. | Move money by hand. What the farmer is owed follows the delivery, and it's paid at the payout run, never by a button. |
 
 !!! note "A question hiding in that table"
-    Right now, any delivery agent can record a pickup or hand-over on *any* order — not just their own run — because the permission that lets them do their job is the same one that lets an admin step in. It hasn't caused a problem, but confirming a delivery is what decides the farmer is owed their share. See decision 3.
+    Right now, any delivery agent can record a pickup or hand-over on *any* order — not just their own run — because the permission that lets them do their job is the same one that lets an admin step in. It hasn't caused a problem, but confirming a delivery is what decides the farmer is owed their share. See question 3.
 
 ## Where the money is, at each moment
 
@@ -81,7 +81,7 @@ flowchart TD
 
 ### The order nobody collected
 
-The gap that started all of this: an order can be packed, ready at the farm gate, paid for — and then nobody comes. Until recently the only way to move it forward was a button on the *farmer's* side, so an uncollected order simply sat there with the buyer's money held and no one alerted. The delivery agent can now record the pickup themselves, which closes the gap. What we don't yet have is a list Operations can look at that says "these orders were ready yesterday and still haven't been collected". See decision 4.
+The gap that started all of this: an order can be packed, ready at the farm gate, paid for — and then nobody comes. Until recently the only way to move it forward was a button on the *farmer's* side, so an uncollected order simply sat there with the buyer's money held and no one alerted. The delivery agent can now record the pickup themselves, which closes the gap. What we don't yet have is a list Operations can look at that says "these orders were ready yesterday and still haven't been collected". See question 4.
 
 ## What we want to change, and why
 
@@ -96,9 +96,9 @@ The proposal is the boring one: **keep one record of each fact, and work everyth
 !!! info "What this is not"
     It is not a rewrite of how orders work from the buyer's or farmer's point of view. The journey above stays the journey. This is about how we store it.
 
-## What we need you to decide
+## Questions we've hit so far
 
-Five questions. The engineering choices behind them are settled; these are the ones with a business or operations judgement in them. Each has our recommendation, and what it costs to go the other way.
+Five so far, from the engineering side. They're numbered for reference, not priority, and we expect Operations to add more — that's the point of this page. Where we have a view we've said so; where we don't, we've said that too. Nothing is decided.
 
 **1. Should a farmer ever be able to mark an order as "on its way"?**
 
@@ -129,6 +129,20 @@ Once the changes land, we will know for every order whether a crew was assigned 
 Today it goes out the day before the scheduled date for any order the farmer has accepted — even if nobody has been assigned to collect it yet. That has promised deliveries we hadn't organised.
 
 *We recommend sending it only once a driver and agent are assigned.* Then the message means what it says.
+
+## What we'd like to hear from Operations
+
+The diagrams above are what the software believes today. They can't see the yard, the van or the doorstep. Things we'd like to know before the flow is finalised — and anything else you think we've drawn wrong:
+
+- How does a run actually get loaded? One farm or several per van? Who decides the order of stops?
+- What happens when the agent arrives and the farmer isn't ready, or the quantity is short?
+- What happens at the door when the buyer isn't there, refuses part of the order, or disputes the quality?
+- How is cash handled on pay-on-delivery runs — who holds it, when is it counted, what if it's short?
+- Do drivers need to see or record anything, or is the delivery agent always present?
+- When produce comes back on the van, where does it physically go, and who decides whether it can be resold?
+- What does a "good day" look like for the ops team, and what do you check first when something is stuck?
+
+None of these have a place in the flow yet. The answers will change it.
 
 ## What you'll notice once it's done
 
