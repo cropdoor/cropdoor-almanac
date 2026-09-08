@@ -2,6 +2,11 @@
 
 *For Operations and leadership. The [engineering version](order-delivery-flow.md) has the same content with the code attached.*
 
+!!! info "Superseded as the description of intent"
+    On 7 September the team described the flow they want. It is drawn, with what it gets right and the
+    questions it raises, in [The flow you described](order-delivery-flow-v2-questions.md). This page stays
+    as the record of how orders moved before that conversation.
+
 What happens to an order from the moment a buyer places it to the moment the produce is in their hands — who does each step, where the money is at each moment, and what we think should change. This is an open conversation: we're collecting how orders and deliveries actually work, from everyone who touches them, before the flow is finalised. Nothing here is decided, and the questions at the end are only the ones we've found so far.
 
 One thing to hold onto while reading: **CropDoor collects and delivers the produce. Farmers don't.** A farmer's job is to accept the order, pack it, and have it ready at the farm gate. From there it is our driver and our delivery agent who move it, and our team who record what happened. Most of what we're proposing to fix comes from the software not quite believing that.

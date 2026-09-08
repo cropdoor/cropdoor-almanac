@@ -2,6 +2,11 @@
 
 *Engineering version. The [operations version](order-delivery-flow-for-operations.md) tells the same story without identifiers, for people who run the business.*
 
+!!! info "Superseded as the description of intent"
+    The team's 7 September flow is the design now; see the
+    [gap analysis](order-delivery-flow-v2-gap-analysis.md). This page stays as the record of what exists
+    and what the deletion audit found, which the rebuild starts from.
+
 The whole flow — who acts, what moves, where money attaches, what is stored — drawn once so the team can argue over the mechanism rather than the prose. This is an open conversation to get the whole flow down before anything is built; the questions at the end are the ones engineering has hit so far, and the list is expected to grow as Operations adds theirs.
 
 Grounded against `develop` after #221 (cancellation disposition) and #222 (agent pickup), September 2026.

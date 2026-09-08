@@ -140,8 +140,10 @@ nav:
       - Overview: audit/index.md
   - Domain:
       - Overview: domain/index.md
-      - Order → delivery flow: domain/order-delivery-flow.md
+      - Order → delivery flow (as built): domain/order-delivery-flow.md
       - Order → delivery, for operations: domain/order-delivery-flow-for-operations.md
+      - The flow you described (questions for ops): domain/order-delivery-flow-v2-questions.md
+      - Team flow v2 (gap analysis): domain/order-delivery-flow-v2-gap-analysis.md
   - Payments:
       - Overview: payments/index.md
       - Money, pricing, tax & commission: payments/money-model.md
