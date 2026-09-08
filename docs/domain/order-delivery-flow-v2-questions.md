@@ -16,7 +16,7 @@ flowchart TD
     D --> E[Crew assigned:<br/>driver + delivery agent]
     E --> F[Farmer hands produce to crew:<br/>HANDOFF]
     F --> G[Delivery agent marks<br/>IN TRANSIT]
-    G --> H[At the door: cash if POD,<br/>handoff code, hand over, photo]
+    G --> H[At the door: handoff code — every order —<br/>plus cash if POD, hand over, photo]
     H --> I([DELIVERED — buyer<br/>rates or disputes])
 
     A -. "buyer may cancel free<br/>until here" .-> B
@@ -31,7 +31,7 @@ Before the questions — because this is a better flow than the one we had, and 
 - **It names the moment custody changes hands.** "Handoff" makes "the produce left the farm" an explicit act with a signer. Stock, cancellation and liability all hang on that moment; the old flow blurred it.
 - **Cancellation cost tracks real cost.** Free while nothing has happened; a penalty once the farmer has committed; impossible once we hold the goods. Those are the right three windows.
 - **We see the produce before a van is sent.** The field-agent visit turns "the farmer says" into "we saw". It is the only control in either flow against a farmer accepting an order they can't fill.
-- **The handoff code closes a whole class of complaint** — "I never received it" — and the single most damaging insider fraud: an agent confirming a delivery that didn't happen.
+- **The handoff code closes a whole class of complaint** — "I never received it" — and the single most damaging insider fraud: an agent confirming a delivery that didn't happen. It applies to **every** order, paid online or cash on delivery; it verifies the *delivery*, not the payment.
 - **The photo is evidence at zero cost**, taken by the person with the least reason to fake it in the buyer's favour.
 - **The farmer's job ends at the gate.** Everything after is ours, which is how the operation actually runs.
 - **It uses the operation's own words** — crew, field agent, handoff, READY — so ops and engineering will be arguing about the same thing.
@@ -105,7 +105,7 @@ Not because we expect it — because a flow that can't answer these will be game
 - That cancelled stock can go back on the shelf — harvested perishables can't.
 - That payment is all-online or all-cash; no deposit. Which is exactly why a cash penalty has nothing to bite on.
 - That only buyers raise disputes. A farmer who was short-paid or whose crate was refused, an agent who was robbed — none has a channel.
-- That delivery agents are trusted employees, not gig workers. The whole cash-and-code design rests on it.
+- That delivery agents are trusted employees, not gig workers. Cash handling rests on it; the code is our check *on* the agent, so it does not.
 - That we meet the buyer's chosen date. No step accounts for missing it, and the penalty window doesn't care.
 - That text messages arrive. The code, the reminders and every farmer message ride on one channel.
 - That someone is told at each new step. Today farmers hear about new orders and cancellations only — nobody is told at READY, crew assignment or handoff.

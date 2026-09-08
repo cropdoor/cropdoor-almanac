@@ -15,10 +15,10 @@ Everything here supersedes the earlier [order → delivery flow](order-delivery-
 5. Order is assigned to a delivery **crew** (delivery agent + driver) after farmer marks READY.
 6. Farmer hands the order to the crew, marking **HANDOFF**. Buyer **cannot cancel after handoff**.
 7. Delivery agent marks the order **IN TRANSIT**. Buyer sees it in transit.
-8. Delivery agent marks the order **DELIVERED**, takes a **photo**. If POD, the agent **must take money before hand-over**.
+8. Delivery agent marks the order **DELIVERED**, takes a **photo**. The **handoff code is verified for every order, online or POD**. If POD, the agent **must take money before hand-over**.
 9. Buyer can **rate** the farm or raise a **dispute**.
 
-**Handoff code:** a two-way code verifying the order reached the right buyer. The agent asks the buyer for it and enters it before handing over.
+**Handoff code:** a two-way code verifying the order reached the right buyer, **required on every order regardless of payment method**. The agent asks the buyer for it and enters it before handing over.
 
 ```mermaid
 stateDiagram-v2
@@ -30,7 +30,7 @@ stateDiagram-v2
     READY --> CREWED : admin assigns driver + delivery agent
     CREWED --> HANDOFF : farmer hands produce to crew
     HANDOFF --> IN_TRANSIT : delivery agent
-    IN_TRANSIT --> DELIVERED : code verified · cash if POD · photo
+    IN_TRANSIT --> DELIVERED : code verified (every order) · cash if POD · photo
     DELIVERED --> [*] : buyer rates or disputes
     PLACED --> CANCELLED : buyer, free
     ACCEPTED --> CANCELLED : buyer — regime undefined (gap 3)
@@ -152,7 +152,7 @@ Handoff is at the farm gate (not a shed). One visit = one order. Field and deliv
 
 ## Strengths
 
-Custody is named. Cancellation cost tracks real cost. Platform eyes on produce before a van is sent. The code closes "never received" and the worst insider fraud. The photo is free evidence. "Cash before hand-over" is said aloud. Crew after READY — no van for unready produce. The farmer's job ends at the gate. IN_TRANSIT is buyer-visible (even if it should be derived). The operation's own words.
+Custody is named. Cancellation cost tracks real cost. Platform eyes on produce before a van is sent. The code closes "never received" and the worst insider fraud, on every order — it verifies delivery, orthogonal to payment. The photo is free evidence. "Cash before hand-over" is said aloud. Crew after READY — no van for unready produce. The farmer's job ends at the gate. IN_TRANSIT is buyer-visible (even if it should be derived). The operation's own words.
 
 ## Questions for Operations and leadership
 
