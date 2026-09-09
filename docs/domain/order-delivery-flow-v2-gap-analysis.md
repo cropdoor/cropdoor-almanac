@@ -6,6 +6,9 @@ On 7 September the team came back with the flow they want. **That flow is the de
 
 Everything here supersedes the earlier [order → delivery flow](order-delivery-flow.md) page as a description of intent. That page stays as the record of what exists and what the deletion audit found.
 
+!!! tip "Answers are being collected"
+    Every question below has a row on the [working answers](order-delivery-flow-v2-working-answers.md) page — tagged by who owns the answer, ordered by what unlocks what, with engineering's view pre-filled where there is one. That page is where the flow gets finalised.
+
 ## The flow, verbatim
 
 1. Buyer makes an order, gets a **handoff code**.

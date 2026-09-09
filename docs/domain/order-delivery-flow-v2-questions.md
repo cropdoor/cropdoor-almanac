@@ -6,6 +6,9 @@ We took the flow you described and put it through a hard review — thinking as 
 
 **Nothing here is a decision.** These are the gaps we found. Some will turn out to be non-issues once you tell us how things actually work on the ground. Some will change the flow.
 
+!!! tip "Answers are being collected"
+    Every question below has a row on the [working answers](order-delivery-flow-v2-working-answers.md) page — tagged by who owns the answer, ordered by what unlocks what, with engineering's view pre-filled where there is one. That page is where the flow gets finalised.
+
 ## The flow, as you described it
 
 ```mermaid

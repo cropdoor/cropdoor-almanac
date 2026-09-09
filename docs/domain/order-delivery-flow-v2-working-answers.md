@@ -1,0 +1,159 @@
+# Working answers — closing the gaps before we build
+
+*The working document for finalising the flow. Questions come from the [gap analysis](order-delivery-flow-v2-gap-analysis.md); the plain-language versions are on the [questions page](order-delivery-flow-v2-questions.md). Answers are recorded here as they land, and the flow is redrawn from them.*
+
+## How to use this page
+
+Every question is tagged by **who owns the answer**:
+
+| Tag | Meaning | Who answers |
+| --- | --- | --- |
+| **FACT** | How the operation actually works today. Not a debate. | Operations |
+| **POLICY** | A business rule we have to choose. | Leadership, with Operations |
+| **DESIGN** | How to build it, once the facts and policy are known. | Engineering proposes; the team confirms |
+
+And by **what it hangs on** — the three shape questions from the analysis. Answer those first; many rows below change or vanish depending on them.
+
+| Shape question | If the answer is… | Then… |
+| --- | --- | --- |
+| **S1** — is the inspection of the packed crate, at the gate, once per farm? | yes | steps 3, 4 and 6 collapse into one farm-gate moment; the two-way READY and the two-way HANDOFF become one sign-off; questions 2, 3, 9, 10 change meaning |
+| **S2** — does a dispute hold the farmer's payout, and who owns the outcome? | (any) | decides the money rows (21–23), the rating rows (29–30), and whether a rejection path is needed at the door |
+| **S3** — is HANDOFF the custody fact, with IN TRANSIT derived from the run? | yes | one fewer state, one fewer tap; the "forgotten IN TRANSIT" stall disappears |
+
+**Where engineering already has a view, it is pre-filled in the last column** — so the meeting reacts to a proposal rather than starting from blank. A pre-filled view is an opinion, not a decision.
+
+---
+
+## Start here — three facts that decide the shape
+
+These are FACT questions. Ops can answer them in a sentence each, and the answers determine which of the remaining thirty apply.
+
+| # | Question | Tag | Hangs on | What the world already forces · engineering's view | **Answer** | Flow change |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | When the field agent visits, are they looking at produce already picked and packed, or at what is still growing? | FACT | S1 | If standing crop: the inspection certifies nothing about the crate that goes in the van, and a second inspection at handoff is needed anyway. If the packed crate: the inspection *is* the handoff moment. | — | — |
+| 2 | Is the visit once per order, or once per farm on a collection day covering everything ready? How many farms can one agent inspect in a day? | FACT | S1 | Field agents are zone-based. Per-order visits do not scale past a handful of farms. | — | — |
+| 9 | Do farmers ever bring produce to a shed or collection point rather than the van coming to the farm? If yes, who is present at that handoff? | FACT | S1, S3 | The model already has aggregation points — "the shed or warehouse within a zone where farmers bring produce a van cannot collect at the farm". If this happens, the farm-gate sign-off has a different signer, possibly no farmer. | — | — |
+
+**Then decide:**
+
+| # | Question | Tag | Hangs on | Engineering's view | **Answer** | Flow change |
+| --- | --- | --- | --- | --- | --- | --- |
+| 3 | If the agent is at the farm anyway to inspect, why not make that visit the collection? What is gained by two trips? | POLICY | S1 (after 1, 2, 9) | **Collapse them** if 1 = packed crate. One farm-gate moment: farmer presents, agent inspects and receives, both sign. If 1 = standing crop, keep the early visit *but* as a per-farm-per-day act, not per order — and accept that the crate is inspected again at handoff. | — | — |
+
+---
+
+## The farm visit and the farm gate
+
+| # | Question | Tag | Hangs on | What the world forces · engineering's view | **Answer** | Flow change |
+| --- | --- | --- | --- | --- | --- | --- |
+| 4 | If there is no field agent in a zone this week, does that zone stop selling, or does someone else sign off — and who? | POLICY | S1 | Every gate needs a named fallback or it is a stall. Candidates: the delivery agent signs at collection; Ops overrides with a reason; the zone pauses. | — | — |
+| 5 | If the agent finds the farm short, that affects every other buyer on the same listing. Who tells them, and what are they offered? | POLICY | — | Stock is per listing, not per order. A short finding is a listing event: reduce the listing, notify every open order on it, offer each buyer cancel-free or wait. | — | — |
+| 6 | When our agent has certified the quality and the buyer still complains about quality, who is responsible — the farmer or us? | POLICY | S2 | The flow puts our signature in the chain. Engineering's view: a certified-quality dispute is **ours to resolve with the buyer**, and separately ours to take up with the farmer — not passed straight through as a farmer clawback. | — | — |
+| 7 | Do farmers have smartphones and data at the gate? If not, who taps READY and "handed over" for them? | FACT | S1, S3 | Only an SMS rail reaches every farmer. If an agent taps for the farmer, every "two-way" sign-off is one person's word unless the farmer holds something the agent doesn't — see 10. | — | — |
+| 8 | What happens today when the van arrives and the produce is not there, is short, or the farmer is absent? Who decides on the spot? | FACT | S2 | This is the missing **rejection path at the gate**. Whatever happens today becomes a named outcome with an owner. | — | — |
+| 10 | Should the farmer have their own code — read out to the crew — so a disagreement about what was handed over has two records, not one? | POLICY | S3 | **Yes.** The buyer-door code solves exactly this problem at the other end. A farmer code sent by SMS works on any phone and turns the agent's tap into a two-party record. | — | — |
+| **34** | **What is the cancellation rule while the order waits for the field agent — between "accepted" and "READY"?** | POLICY | S1 | *Not asked before.* The flow says free until accepted, penalty at READY; the wait in between — the longest window — is unspecified. If S1 collapses the steps, this window is simply "accepted, awaiting collection" and needs one rule. | — | — |
+
+---
+
+## The door
+
+| # | Question | Tag | Hangs on | What the world forces · engineering's view | **Answer** | Flow change |
+| --- | --- | --- | --- | --- | --- | --- |
+| 11 | In what order do things happen at the door: cash, code, hand over, photo? What if the buyer gives the code and then will not pay? | POLICY | — | Engineering's proposed order: **code → cash (if POD) → hand over → photo → confirm.** The code proves the right buyer; cash before the crate leaves the agent's hands; the photo records what was handed over. Crucially, **entering the code must not itself mark the order delivered** — only the final confirm does, so "code then refuses to pay" leaves the order undelivered. | — | — |
+| 12 | What does the agent do when the buyer is present but cannot show the code — dead phone, text never arrived? And if a named representative receives, whose code do they give? | POLICY | — | The address already lets a buyer name a contact person. Options: resend the code to the registered phone on the spot; the agent calls the registered number and the buyer reads it; Ops override with a reason, logged. Refusing delivery to the right person at the right door is the worst outcome. | — | — |
+| 13 | How often does a POD buyer come up short or want to pay part? What do agents do today? | FACT | — | Payment at the door is currently all-or-nothing. If partials are common, the flow needs "partial collected, balance owed" or "order reduced at the door" — both are money design. | — | — |
+| 14 | Nobody home, or the buyer refuses the crate: retry (who pays), redirect, return to farm, write off? Who decides — agent, supervisor, office? | POLICY | S2 | This is the missing **rejection path at the door**. It needs a named outcome, an owner, and an answer to "is the farmer paid" — they did everything right. | — | — |
+| 15 | One buyer, three farms, same day: three codes at one gate? | POLICY | — | Engineering's view: **one code per buyer per delivery day**, not per order. The code verifies the person, not the crate. | — | — |
+
+---
+
+## Money
+
+| # | Question | Tag | Hangs on | What the world forces · engineering's view | **Answer** | Flow change |
+| --- | --- | --- | --- | --- | --- | --- |
+| 16 | Is the penalty to compensate the farmer, deter buyers, or cover our van cost? The answer decides who receives it. | POLICY | — | Engineering cannot pick the recipient. It can say: if the farmer receives it, that is a payable on an undelivered order (a new kind of payout line) *and* the farmer keeps the produce. If the platform receives it, the farmer who harvested bears the loss. | — | — |
+| 17 | How do we collect a penalty from a cash-on-delivery buyer who has never paid us anything? | POLICY | — | Honestly: **we can't, today.** Options: a deposit on POD orders (see 36); block further ordering until paid; suspension. Without one of these, POD buyers are penalty-immune. | — | — |
+| 18 | If a farmer accepts and then cancels or fails to hand over, does the farmer pay anything? Does the buyer get anything for the wait? | POLICY | — | The flow's penalties are one-sided. Engineering's view: at minimum the buyer is refunded in full *including the delivery fee*, and a farmer failure after READY is recorded against the farm. | — | — |
+| 19 | Van breaks down, or we miss the date: farmer still paid? Buyer refunded the fee? Buyer's penalty waived if they cancel because we were late? | POLICY | S2 | Engineering's view: platform failure → farmer paid (they delivered to us), buyer refunded fee, penalty waived. It is our failure. | — | — |
+| 20 | When an agent collects cash, when and how does it reach us? How do we know at month-end which cash is still in agents' pockets? | FACT | — | Today cash is recorded as ours the moment the agent confirms. Whatever the real remittance is (daily to office, mobile money, bank) becomes a step with a record, so "collected" and "banked" are different facts. | — | — |
+| 21 | Does a complaint after delivery pause the farmer's payment? For how long? If already paid, do we take it back from their next sale? | POLICY | S2 | Engineering's view: **yes, an open dispute holds that order's payout**, and the payout clearance window should be at least the dispute window so an *undisputed* order clears exactly as the window closes. Clawback from future sales should be the exception, not the mechanism. | — | — |
+| 22 | "Partial refund", "replacement", "goodwill credit" — what actually happens, who moves what money, who pays for a replacement delivery? | POLICY | S2 | None of these outcomes moves money today. Each needs a rail: partial refund = a refund of a stated amount; replacement = a new order at whose cost?; goodwill credit = a buyer balance we do not have. Pick which outcomes we actually offer. | — | — |
+| 23 | A cash buyer wins a complaint — how do we pay them back? | POLICY | — | Needs a pay-to-buyer rail (mobile money) and an answer to "has the agent's cash even been banked". | — | — |
+| 24 | Does a cancellation fee attract VAT or levies? What document does the buyer receive for it? | FACT | — | An accountant's question. The answer decides whether the penalty is one ledger line or two, and whether a credit note can carry it. | — | — |
+| **36** | **Should cash-on-delivery orders require a deposit?** | POLICY | — | *Not asked before — engineering's proposal.* It is the only mechanism that makes a POD penalty enforceable, and it partly answers 17, 23 and the phantom-POD-buyer case. It also changes the buyer's experience. | — | — |
+
+---
+
+## Time
+
+| # | Question | Tag | Hangs on | What the world forces · engineering's view | **Answer** | Flow change |
+| --- | --- | --- | --- | --- | --- | --- |
+| 25 | How long may an order wait for the farmer to accept before we cancel it for them? | POLICY | — | Every state needs a maximum or it is a stall. Engineering's view: a number of hours, then auto-cancel with the buyer refunded in full. | — | — |
+| 26 | Once READY, how quickly must the van collect? Is produce saleable after that? | POLICY | S1 | Sets the collection SLA — and whether a buyer whose order sits READY waiting for *our* van is still in the penalty window. Engineering's view: they should not be. | — | — |
+| 27 | How long may an order sit "handed off" or "in transit" before the office is alerted? Who is alerted? | POLICY | S3 | This is the ops list from the previous round — "ready and not collected", now also "collected and not delivered". Needs an owner. | — | — |
+| 28 | A buyer taps cancel a moment after the farmer accepted and is told a penalty applies. Grace period, or hard line? | POLICY | — | Engineering's view: a short grace period (minutes) costs nothing and removes a complaint generator. | — | — |
+
+---
+
+## After delivery
+
+| # | Question | Tag | Hangs on | What the world forces · engineering's view | **Answer** | Flow change |
+| --- | --- | --- | --- | --- | --- | --- |
+| 29 | The buyer rates "the farm" — but the van, the agent and the timing were ours. Split the rating? Should a farmer answer a complaint about a late van? | POLICY | S2 | Engineering's view: **two ratings** — produce (farm) and delivery (platform) — and disputes routed by type: quality/quantity to the farm, late/damaged/agent to us. | — | — |
+| 30 | Can a buyer both rate and dispute the same order? Should an upheld complaint change the rating? | POLICY | — | Engineering's view: both allowed; an upheld quality dispute suppresses the produce rating from the farm's average. | — | — |
+| **35** | **Should anyone other than the buyer be able to raise a dispute — a farmer short-paid or refused at the gate, an agent robbed?** | POLICY | S2 | *Not asked before.* Disputes are buyer-only in the flow. The rejection paths (8, 14) will generate farmer-side grievances with no channel. | — | — |
+
+---
+
+## People and messages
+
+| # | Question | Tag | Hangs on | What the world forces · engineering's view | **Answer** | Flow change |
+| --- | --- | --- | --- | --- | --- | --- |
+| 31 | Will the same person ever be the field agent, the delivery agent and the confirmer? Are we comfortable with one person holding all three? | FACT → POLICY | S1 | If S1 collapses the steps, inspector and collector are *the same role by design* — then the question becomes whether the confirmer at the door must be a different person from the collector at the gate. | — | — |
+| 32 | Are delivery agents employees or gig workers? | FACT | — | Cash custody and the override rule both rest on this. | — | — |
+| 33 | Which moments produce a text, to whom: agent coming; READY; handed over; van on the way; delivered; cash received; complaint raised? | POLICY | — | Today farmers are told about new orders and cancellations only. Engineering's view: farmer gets *agent coming* and *handed over* (with the count); buyer gets *on the way*, *delivered*, and *cash received (GHS X)* as a receipt. | — | — |
+
+---
+
+## Coverage — every gap and stall, and the question that closes it
+
+So we can see when we are done. A gap with no question was a hole in the analysis itself; three were found and added above (34, 35, 36).
+
+| Gap / stall from the analysis | Closed by |
+| --- | --- |
+| Buyer refuses at the door / absent | 12, 14 |
+| POD buyer short or partial | 13, 36 |
+| Cancellation between accepted and READY undefined | **34** |
+| Penalties one-sided | 18 |
+| Farmer without a smartphone | 7, 10 |
+| Door sequence unordered | 11 |
+| Buyer present, no code | 12 |
+| One buyer, several farms, one door | 15 |
+| One farm, several orders, one van | 2, 3 |
+| No time budget after READY | 26, 27 |
+| Van breaks down mid-run | 19, 27 |
+| Buyer rates the farm for our delivery | 29 |
+| Field-agent coverage | 2, 4 |
+| Availability is per listing | 5 |
+| Dispute on a POD order | 23 |
+| Cancel/accept race | 28 |
+| Order stuck awaiting acceptance | 25 |
+| Stuck awaiting the agent | 4, 34 |
+| READY, no crew | 26 |
+| Van at the gate, no handoff | 8 |
+| HANDOFF never IN_TRANSIT | S3 (design) |
+| IN_TRANSIT never DELIVERED | 14, 27 |
+| Dispute open, farm silent | 21 |
+| POD cash never remitted | 20 |
+| POD penalty owed | 17, 36 |
+| Only buyers can dispute | **35** |
+| Field agent certifies bad produce | 6 |
+| One person, three hats | 31 |
+| Phantom POD buyer | 17, **36** |
+
+## What happens as answers land
+
+1. Each answered row gets its **Flow change** filled in — "none", or the concrete edit to the flow.
+2. When S1, S2 and S3 are answered, the flow is **redrawn wholesale** on the [questions page](order-delivery-flow-v2-questions.md), and the remaining rows are re-read against the new shape — some will no longer apply.
+3. When every row is answered or explicitly deferred, the flow is final, and the build plan is written from it. Not before.
