@@ -145,6 +145,7 @@ nav:
       - The flow you described (questions for ops): domain/order-delivery-flow-v2-questions.md
       - Team flow v2 (gap analysis): domain/order-delivery-flow-v2-gap-analysis.md
       - Working answers (closing the gaps): domain/order-delivery-flow-v2-working-answers.md
+      - The order availability check (proposal): domain/order-availability-check.md
   - Payments:
       - Overview: payments/index.md
       - Money, pricing, tax & commission: payments/money-model.md
