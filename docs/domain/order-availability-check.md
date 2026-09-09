@@ -46,7 +46,7 @@ The check is a short form on the agent's phone, filled at the farm. It works off
 | Field | Type | Why |
 | --- | --- | --- |
 | Who was present | Farmer / a farm member (name) / nobody | If nobody, the check cannot be completed — it is rescheduled, not failed |
-| Van can reach the gate | Yes / No / Only in dry weather | Already recorded at verification; re-confirmed because roads change. Decides whether this collection uses a collection point |
+| Van can reach the gate | Yes / No / Only in dry weather | Already recorded at verification; re-confirmed because roads change. There are no collection points for now, so a farm the van cannot reach is something Admin/Ops must know before a crew is sent |
 | Location | Recorded automatically by the phone | Light evidence the check was made at the farm, not from the road |
 | Notes | Free text, optional | Anything the crew should know: "gate is the blue one", "farmer's brother will hand over" |
 
