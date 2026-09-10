@@ -52,14 +52,15 @@ Six actors: **Buyer**, **Farmer**, **Field Agent**, **Delivery Agent**, **Driver
 | Window | From | To | What the buyer gets back |
 | --- | --- | --- | --- |
 | **Free** | Placing the order | The farmer marks **READY** *(settled 10 September)*. The check happens inside this window, so the buyer hears whether the produce is there before it closes | Everything |
-| **With a penalty** | End of the free window | The farmer marks HANDOFF | Everything minus the penalty. Amount, who receives it, and how it is collected on a cash order are open (16, 17, 36) |
+| **With a penalty** | The farmer marks READY, after a few minutes' grace | The farmer marks HANDOFF | Online: everything minus the penalty — a fixed share of the produce value, which goes to the farmer, plus the delivery fee once a crew is assigned. Cash: nothing to deduct; the buyer gets a strike instead, and after a set number cash on delivery is switched off for them |
 | **Not possible** | HANDOFF | — | The produce is on its way. Only Admin/Ops can cancel after this, and must say where the produce is |
 
 ## Money, in one line each
 
 - **Online:** the buyer's money sits in CropDoor's escrow from placing until the payout run. Delivery turns it into money *owed* to the farmer; the payout run pays it, net of commission. A dispute holds it.
 - **Cash on delivery:** the delivery agent takes the cash at the door, before handing over. How and when it is banked is open (20).
-- **Refunds:** Short → the difference; Not available or a free-window cancellation → everything; a penalty-window cancellation → everything minus the penalty.
+- **Refunds:** Short → the difference; Not available or a free-window cancellation → everything; a penalty-window cancellation → everything minus the penalty; a cancellation that is our fault → everything, fee included.
+- **The penalty:** deducted from escrow, never chased. The farmer's share goes to what we owe the farmer; the fee, once a crew is assigned, is ours. Ops sets the share and the grace minutes. No deposit on cash orders for now — kept in reserve if failed cash deliveries turn out to be common.
 
 ## What the buyer sees
 
@@ -137,27 +138,22 @@ Numbers refer to the [working-answers page](order-delivery-flow-v2-working-answe
 
 - **11.** In what order do things happen at the door: cash, code, hand over, photo? What if the buyer gives the code and then will not pay?
 - **12.** What does the agent do when the buyer is present but cannot show the code — dead phone, text never arrived? And if a named representative receives, whose code do they give?
-- **14.** Nobody home, or the buyer refuses the crate: retry (who pays), redirect, return to farm, write off? Who decides — agent, supervisor, office? *(mechanics settled by the proposal above; only the policy is open)*
+- **14.** Nobody home, or the buyer refuses the crate: retry (who pays), redirect, return to farm, write off? Who decides — agent, supervisor, office? *(mechanics settled; only the policy is open)*
 - **15.** One buyer, three farms, same day: three codes at one gate?
 
 **Money**
 
-- **16.** Is the penalty to compensate the farmer, deter buyers, or cover our van cost? The answer decides who receives it.
-- **17.** How do we collect a penalty from a cash-on-delivery buyer who has never paid us anything?
 - **18.** If a farmer accepts and then cancels or fails to hand over, does the farmer pay anything? Does the buyer get anything for the wait?
-- **19.** Van breaks down, or we miss the date: farmer still paid? Buyer refunded the fee? Buyer's penalty waived if they cancel because we were late?
 - **20.** When an agent collects cash, when and how does it reach us? How do we know at month-end which cash is still in agents' pockets?
 - **22.** "Partial refund", "replacement", "goodwill credit" — what actually happens, who moves what money, who pays for a replacement delivery?
 - **23.** A cash buyer wins a complaint — how do we pay them back?
 - **24.** Does a cancellation fee attract VAT or levies? What document does the buyer receive for it?
-- **36.** Should cash-on-delivery orders require a deposit?
 
 **Time**
 
 - **25.** How long may an order wait for the farmer to accept before we cancel it for them?
 - **26.** Once READY, how quickly must the van collect? Is produce saleable after that?
 - **27.** How long may an order sit "handed off" or "in transit" before the office is alerted? Who is alerted?
-- **28.** A buyer taps cancel a moment after the farmer accepted and is told a penalty applies. Grace period, or hard line?
 
 **After delivery**
 
