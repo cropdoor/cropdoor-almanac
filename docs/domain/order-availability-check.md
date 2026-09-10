@@ -83,7 +83,7 @@ This is where the check earns its place: every outcome has a consequence and an 
 | Outcome | The order | The buyer | The farmer | Money |
 | --- | --- | --- | --- | --- |
 | **Confirmed** | May be marked READY by the farmer when packed; Admin/Ops then assign a crew | Told "confirmed available" | Told the check passed | Nothing moves |
-| **Short** | Paused until the buyer chooses | Offered a choice: **take the reduced quantity** (price adjusts down; for online payment the difference is refunded) or **cancel free** | Told the finding | Refund of the difference, or full refund — no penalty either way |
+| **Short** | Paused until the buyer chooses — until the end of the next day, then cancelled with a full refund | Offered a choice: **take the reduced quantity** (price adjusts down; for online payment the difference is refunded) or **cancel free** | Told the finding | Refund of the difference, or full refund — no penalty either way |
 | **Not available** | Cancelled | Refunded in full, no penalty, told why in plain words | Told; the finding is recorded against the farm | Full refund |
 | **Could not check** | Unchanged | Told the visit is rescheduled; the free-cancel window stays open | Told when the agent will return | Nothing |
 

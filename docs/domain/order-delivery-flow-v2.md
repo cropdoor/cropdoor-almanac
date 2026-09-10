@@ -47,7 +47,7 @@ Six actors: **Buyer**, **Farmer**, **Field Agent**, **Delivery Agent**, **Driver
 | 5a | **Delivery Agent** | If the crew arrives and cannot collect — farmer absent, produce not there, short — takes **nothing** and records **COLLECTION FAILED** with the reason | Admin/Ops see the reason and decide; the farmer fixes it and marks READY again, or Admin/Ops cancel. The buyer may cancel free meanwhile — the failure was not theirs |
 | 6 | **Farmer** | Marks **HANDOFF** when the crew has the produce | The farmer's word that it left their hands. **The buyer can no longer cancel** |
 | 7 | **Delivery Agent** | Marks **IN TRANSIT** | The crew's word that we have it. The buyer sees "on its way"; Admin/Ops see the goods are in our hands |
-| 8 | **Delivery Agent** | At the door: asks the buyer for the handoff code, takes cash if paying on delivery, hands over, takes a photo, marks **DELIVERED** | The code is checked on **every** order, online or cash. In that order — code, cash, hand over, photo, confirm — and entering the code does not itself deliver. A buyer without the code gets it resent to their registered phone, or reads it back over a call to that number; whoever receives gives the buyer's code |
+| 8 | **Delivery Agent** | At the door: asks the buyer for the handoff code, takes cash if paying on delivery — the buyer is texted "cash received, GHS X" — hands over, takes a photo, marks **DELIVERED** | The code is checked on **every** order, online or cash. In that order — code, cash, hand over, photo, confirm — and entering the code does not itself deliver. A buyer without the code gets it resent to their registered phone, or reads it back over a call to that number; whoever receives gives the buyer's code |
 | 8a | **Delivery Agent** | If the order cannot be handed over — not paid in full, refused, nobody home, no code — does **not** hand over, records **DELIVERY FAILED** with the reason, and takes the produce back to the farm, recording it **returned** on arrival | No partial payment, no partial hand-over. Admin/Ops see the reason and decide: a second attempt (the farmer marks READY again) or cancel |
 | 9 | **Buyer** | Rates the produce and the delivery separately, or raises a dispute | A dispute **holds the farmer's payout**. Admin/Ops receive it and investigate; quality and quantity go to the farm, late or damaged or the agent to us. It resolves to a partial or full refund — nothing else for now. Disputes are the buyer's only |
 | 10 | **Admin/Ops** | The payout run pays farmers for delivered, undisputed orders, net of commission | Money leaves escrow only here |
@@ -67,7 +67,10 @@ Two moments inside the penalty window where the buyer may still cancel free, bec
 
 - **Online:** the buyer's money sits in CropDoor's escrow from placing until the payout run. Delivery turns it into money *owed* to the farmer; the payout run pays it, net of commission. A dispute holds it.
 - **Cash on delivery:** the delivery agent takes the cash at the door, before handing over, and remits it at the end of the run day — to the office or by mobile money to CropDoor's account — recorded per agent per day. Admin/Ops see cash outstanding per agent.
-- **A dispute** resolves to a partial or full refund. Online, it comes back out of escrow; on a cash order, by mobile money to the buyer's registered number.
+- **A dispute** resolves to a partial or full refund. Online, it comes back out of escrow; on a cash order, by mobile money to the buyer's registered number. Who bears it is named in the resolution — the farm's payable, or our cost — never automatic. The payout run never pays an order until its dispute window has closed, so a farmer is never paid on an order that can still be disputed.
+- **After HANDOFF the farmer is paid in full** whatever happens next — a failed delivery, a buyer's cancellation, our own failure. The buyer's penalty funds part of it on an online order; the rest is our cost. Before HANDOFF the farmer keeps the produce and is not paid.
+- **Stock** goes back on the listing on any cancellation before HANDOFF — the produce never left the farm — and never after. The listing stays the farmer's to edit.
+- **The gateway fee** on a free online cancellation is our cost. The penalty appears as a line on the refund's credit note.
 - **Farmers pay nothing when they fail** after READY: the buyer gets everything back, fee included, and the farm gets a strike. After a set number its listings pause pending Admin/Ops review.
 - **Refunds:** Short → the difference; Not available or a free-window cancellation → everything; a penalty-window cancellation → everything minus the penalty; a cancellation that is our fault → everything, fee included.
 - **Tax:** none on farm produce in Ghana today, so none on the penalty. Taxes are configured by Admin/Ops (finance) — name, description, percentage — not fixed in code.
@@ -87,6 +90,13 @@ The flow names the rule; Ops sets the number, and can change it without a rebuil
 | Waiting for acceptance before auto-cancel | 24 hours |
 | READY without a crew before the buyer may cancel free | 2 working days |
 | HANDOFF without IN TRANSIT before Admin/Ops are alerted | 1 hour |
+| Accepted without READY before Admin/Ops call, then cancel | 3 working days |
+| A Short check waiting for the buyer's choice | End of the next day |
+| DELIVERY FAILED waiting for the buyer to ask for a second attempt | End of the next day |
+| Dispute window after delivery, during which the payout waits | Ops sets |
+| Admin/Ops resolve a dispute within | 5 working days |
+
+The penalty share, the two strike counts and the grace minutes stay "Ops sets" until launch — they are chosen with the first real numbers, not before.
 
 ## What the buyer sees
 
@@ -99,7 +109,9 @@ Every state has a way of going quiet. These are the lists, in flow order:
 | Quiet state | Who acts |
 | --- | --- |
 | Accepted, no check after 8 working hours | Field agent |
-| Accepted, not READY after some days | Admin/Ops call the farmer |
+| Accepted, not READY after three working days | Admin/Ops call the farmer; then cancel with a full refund |
+| Short, buyer has not chosen by the end of the next day | Nobody — cancelled automatically, full refund |
+| Crew assigned for today, nothing recorded by the end of the day | Admin/Ops |
 | READY, no crew assigned | Admin/Ops — their own queue. Past two working days the buyer may cancel free; the delay is ours |
 | Placed, not accepted after 24 hours | Nobody — cancelled automatically, full refund |
 | COLLECTION FAILED, with the agent's reason | Admin/Ops — call the farmer, or cancel |
@@ -107,7 +119,8 @@ Every state has a way of going quiet. These are the lists, in flow order:
 | IN TRANSIT, not DELIVERED by the end of the run day | Delivery agent; then Admin/Ops |
 | DELIVERY FAILED, with the agent's reason | Admin/Ops — one second attempt if the buyer asks and pays the fee again; otherwise cancel with a strike |
 | DELIVERY FAILED, not returned by the end of the next day | Delivery agent — the produce is still in a van |
-| Delivered, dispute open | Admin/Ops' dispute queue |
+| Delivered, dispute open past five working days | Admin/Ops' dispute queue, oldest first |
+| DELIVERY FAILED, buyer has not asked for a second attempt by the end of the next day | Nobody — cancelled, strike on the buyer, penalty deducted on an online order |
 | Cash collected, not remitted by the end of the run day | The agent; Admin/Ops see it per agent |
 
 ## When the crew cannot collect, or cannot deliver
@@ -137,7 +150,7 @@ flowchart LR
 | The buyer is told | "Collection was delayed at the farm. We'll update you." The buyer may cancel **free** while the order sits here — the failure was not theirs | They were there, or were not. "We could not complete your delivery: *reason*. Admin/Ops will contact you." |
 | The farmer is told | The reason, in their words | "Your produce is coming back today." |
 | Admin/Ops see | The order in their queue with the reason, the agent's note and photo | The same |
-| Ways out | The farmer fixes it and marks **READY again** — the order re-enters Admin/Ops' queue for a crew; or Admin/Ops **cancel** — buyer refunded in full, the failure recorded against the farm | Once returned to the farm: one second attempt if the buyer asks and pays the delivery fee again — the farmer marks **READY again**; otherwise Admin/Ops **cancel**, with a strike on the buyer and the penalty deducted on an online order |
+| Ways out | The farmer fixes it and marks **READY again** — the order re-enters Admin/Ops' queue for a crew. For *not there* or *short* the old check is void: the field agent checks again before a crew goes. For *farmer absent* the check stands. Or Admin/Ops **cancel** — buyer refunded in full, the failure recorded against the farm | Once returned to the farm: one second attempt if the buyer asks and pays the delivery fee again — the farmer marks **READY again**; otherwise Admin/Ops **cancel**, with a strike on the buyer and the penalty deducted on an online order |
 
 Three rules the table relies on:
 
@@ -157,7 +170,7 @@ Questions 12 and 14 — the buyer has no code; nobody home or the buyer refuses 
 
 Every question on the [working-answers page](order-delivery-flow-v2-working-answers.md) is decided; that page keeps the reasoning behind each answer. The last to close: farm produce does not attract taxes in Ghana today, so neither does the cancellation fee. Taxes are not fixed in code — Admin/Ops (finance) configure them in the platform as a name, a description and a percentage.
 
-**Texts** (decided). Buyer: placed with the code, accepted, check result, ready at the farm, on its way, delivered, dispute received — and, when they happen, collection delayed, delivery could not be completed, cancelled and refunded. Farmer: new order, agent coming, check result, crew assigned, collection failed with the reason, produce coming back, paid.
+**Texts** (decided). Buyer: placed with the code, accepted, check result, ready at the farm, on its way, delivered, dispute received — and, when they happen, collection delayed, delivery could not be completed, cancelled and refunded, cash received. Farmer: new order, agent coming, check result, crew assigned, collection failed with the reason, produce coming back, paid.
 
 ## For engineering
 
