@@ -1,6 +1,6 @@
 # The order availability check
 
-*What the field agent does once the farmer has accepted an order, before Admin/Ops send a crew — proposed by engineering, corrected by Operations on 9 September. Part of finalising the [order → delivery flow](order-delivery-flow-v2-working-answers.md).*
+*What the field agent does once the farmer has accepted an order, before Admin/Ops send a crew. Proposed by engineering, corrected by Operations on 9 September, settled 10 September. Part of the [order → delivery flow, v2](order-delivery-flow-v2.md).*
 
 ## Two kinds of visit
 
@@ -29,7 +29,8 @@ flowchart LR
     D --> E[Admin/Ops open the order, see the<br/>check and READY, assign a crew]
     C -->|Short| F[Buyer chooses:<br/>take less, or cancel free]
     C -->|Not available| G[Order cancelled<br/>Buyer refunded in full]
-    C -->|Could not check| H[Rescheduled<br/>Buyer told]
+    C -->|Could not check| H[Agent returns<br/>next working day]
+    H --> B
 ```
 
 - **Triggered by the farmer accepting.** Until then there is nothing to verify. The agent has **8 working hours** from acceptance to make the check (see below).
@@ -97,7 +98,7 @@ The field agent makes the check within **eight working hours** of the farmer acc
 
 ## What the handoff still checks
 
-Because the agent may have seen standing crop, the crew at the gate still confirms *what went in the van*: the count per line, against the check's quantities, and both parties record it — the farmer's own HANDOFF tap and the crew's IN TRANSIT. The availability check is the promise; the handoff is the delivery on it.
+Because the agent may have seen standing crop, the crew at the gate still looks before taking: is the whole order there, as checked? If it is, the farmer marks HANDOFF and the crew marks IN TRANSIT — two people's word, no count to type. If it is not, the crew takes **nothing** and records COLLECTION FAILED with the reason. The availability check is the promise; the handoff is the delivery on it.
 
 ## What Operations sees
 
@@ -110,11 +111,11 @@ Because the agent may have seen standing crop, the crew at the gate still confir
 
 | Moment | Farmer | Buyer |
 | --- | --- | --- |
-| Check scheduled | "A CropDoor agent will visit on *date* to confirm your order *ORD-…*." | — |
+| Check scheduled | "A CropDoor agent will visit within the next working day to confirm your order *ORD-…*." | — |
 | Confirmed | "*ORD-…* is confirmed. Mark it READY on the app when it is packed for collection." | "Your order has been checked and confirmed available." |
 | Short | "We found *N* of *M* available for *ORD-…*. The buyer has been asked whether to proceed." | "Only *N* of the *M* you ordered is available. Take *N* for GHS *X*, or cancel free?" |
 | Not available | "We could not confirm *ORD-…*; it has been cancelled. Reason: *…*" | "Your order was cancelled because the produce was not available as listed. You've been refunded in full." |
-| Could not check | "Our agent could not reach you on *date*. We'll return on *date*." | "Our check is delayed to *date*. You can still cancel free." |
+| Could not check | "Our agent could not reach you today. We'll return the next working day." | "Our check is delayed by a day. You can still cancel free." |
 
 Text messages, not email — farmers do not read email.
 
@@ -136,4 +137,4 @@ The seven open points from the first draft, answered — and folded into the pag
 
 ## For engineering
 
-The check is an order-scoped visit, not a new concept: it fits the existing farm-visit record — agent, zone, date, observations, van access, photos, submitted-at, versioning — with a new purpose, a link to the order, one finding row per order line, and a **derived** outcome. Outcome is computed from the line findings and never stored as a chosen value, so it cannot disagree with them. Acceptance schedules the check. The order's detail view for Admin/Ops carries the check — agent, time, outcome, photos — and crew assignment is refused while the order has no Confirmed check (proposed), with the no-field-agent zone as the stated exception. Three photos per line and the submission location are part of the capture. The check is captured through the existing offline sync envelope as a new capture kind, because agents work on bad links. The permission is the field-agent one, not the delivery one — the two roles stay separable. Each outcome is an audit action in the farm's feed. The finding never writes to the listing.
+The check is an order-scoped visit, not a new concept: it fits the existing farm-visit record — agent, zone, date, observations, van access, photos, submitted-at, versioning — with a new purpose, a link to the order, one finding row per order line, and a **derived** outcome. Outcome is computed from the line findings and never stored as a chosen value, so it cannot disagree with them. Acceptance schedules the check. The order's detail view for Admin/Ops carries the check — agent, time, outcome, photos — and crew assignment is refused while the order has no completed check — Confirmed, or Short with the buyer having chosen to take less — with the no-field-agent zone as the one exception. Three photos per line and the submission location are part of the capture. The check is captured through the existing offline sync envelope as a new capture kind, because agents work on bad links. The permission is the field-agent one, not the delivery one — the two roles stay separable. Each outcome is an audit action in the farm's feed. The finding never writes to the listing.

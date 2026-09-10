@@ -6,8 +6,11 @@ We took the flow you described and put it through a hard review — thinking as 
 
 **Nothing here is a decision.** These are the gaps we found. Some will turn out to be non-issues once you tell us how things actually work on the ground. Some will change the flow.
 
-!!! tip "Answers are being collected"
-    Every question below has a row on the [working answers](order-delivery-flow-v2-working-answers.md) page — tagged by who owns the answer, ordered by what unlocks what, with engineering's view pre-filled where there is one. That page is where the flow gets finalised.
+!!! success "Every question here is decided"
+    The answers, with the reasoning, are on the [working answers](order-delivery-flow-v2-working-answers.md) page; the flow they add up to is drawn on [The order → delivery flow, v2](order-delivery-flow-v2.md). This page stays as the record of what was asked, and why.
+
+!!! note "How the answers were collected"
+    Every question below has a row on the [working answers](order-delivery-flow-v2-working-answers.md) page — tagged by who owns the answer, ordered by what unlocks what, with engineering's view pre-filled where there is one. That page is where each answer was recorded.
 
 ## The flow, as you described it
 
@@ -126,7 +129,7 @@ Not because we expect it — because a flow that can't answer these will be game
 | Delivered, cash never handed in | Agent holds it | Nobody — there is no state for it. |
 | Penalty owed by a cash buyer | No way to collect | Nobody. |
 
-## Questions for the next meeting
+## The questions, as they were asked
 
 Grouped by theme. Numbered for reference only.
 

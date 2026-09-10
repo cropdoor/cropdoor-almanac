@@ -6,8 +6,11 @@ On 7 September the team came back with the flow they want. **That flow is the de
 
 Everything here supersedes the earlier [order → delivery flow](order-delivery-flow.md) page as a description of intent. That page stays as the record of what exists and what the deletion audit found.
 
-!!! tip "Answers are being collected"
-    Every question below has a row on the [working answers](order-delivery-flow-v2-working-answers.md) page — tagged by who owns the answer, ordered by what unlocks what, with engineering's view pre-filled where there is one. That page is where the flow gets finalised.
+!!! success "Every question here is decided"
+    The answers, with the reasoning, are on the [working answers](order-delivery-flow-v2-working-answers.md) page; the flow they add up to is drawn on [The order → delivery flow, v2](order-delivery-flow-v2.md). This page stays as the record of what was asked, and why.
+
+!!! note "How the answers were collected"
+    Every question below has a row on the [working answers](order-delivery-flow-v2-working-answers.md) page — tagged by who owns the answer, ordered by what unlocks what, with engineering's view pre-filled where there is one. That page is where each answer was recorded.
 
 ## The flow, verbatim
 
