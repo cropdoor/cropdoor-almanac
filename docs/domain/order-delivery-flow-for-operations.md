@@ -3,9 +3,10 @@
 *For Operations and leadership. The [engineering version](order-delivery-flow.md) has the same content with the code attached.*
 
 !!! info "Superseded as the description of intent"
-    On 7 September the team described the flow they want. It is drawn, with what it gets right and the
-    questions it raises, in [The flow you described](order-delivery-flow-v2-questions.md). This page stays
-    as the record of how orders moved before that conversation.
+    On 7 September the team described the flow they want. As it stands now, with everything settled since,
+    it is drawn on [The order → delivery flow, v2](order-delivery-flow-v2.md); the questions it raised are on
+    [The flow you described](order-delivery-flow-v2-questions.md). This page stays as the record of how orders
+    moved before that conversation.
 
 What happens to an order from the moment a buyer places it to the moment the produce is in their hands — who does each step, where the money is at each moment, and what we think should change. This is an open conversation: we're collecting how orders and deliveries actually work, from everyone who touches them, before the flow is finalised. Nothing here is decided, and the questions at the end are only the ones we've found so far.
 
