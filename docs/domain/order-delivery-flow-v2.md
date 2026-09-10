@@ -66,10 +66,48 @@ Every state has a way of going quiet. These are the lists, in flow order:
 | Accepted, no check after 8 working hours | Field agent |
 | Confirmed, farmer not READY after *n* days *(n open — 26)* | Admin/Ops call the farmer |
 | READY, no crew assigned | Admin/Ops — their own queue |
-| Crew assigned, no HANDOFF on collection day | The gate problem (8) |
+| COLLECTION FAILED, with the agent's reason | Admin/Ops — call the farmer, or cancel *(proposed state below)* |
 | HANDOFF, no IN TRANSIT | The farmer says it left; the crew has not said they have it. A real signal, not a stale screen |
-| IN TRANSIT, not DELIVERED by end of day | Delivery agent; then Admin/Ops (27, 14) |
+| IN TRANSIT, not DELIVERED by end of day | Delivery agent; then Admin/Ops (27) |
+| DELIVERY FAILED, with the agent's reason | Admin/Ops — second attempt or cancel *(proposed state below; policy 14)* |
 | Delivered, dispute open | Admin/Ops' dispute queue (21) |
+
+## When the crew cannot collect, or cannot deliver (proposed)
+
+*Engineering's proposal, 10 September, for Operations to decide. The facts behind it: the check exists to prevent a wasted trip, but when one happens anyway the delivery agent must tell Admin/Ops why (question 8); at the door, an agent who is not paid in full does not hand over, raises it, and takes the produce back to the farm (question 13).*
+
+Two states, not one, because the produce is in different hands: at the gate it never left the farm; at the door it is in our van and has to go back.
+
+```mermaid
+flowchart LR
+    R[READY, crew assigned] -->|farmer absent · not there · short| CF[COLLECTION FAILED]
+    CF -->|farmer marks READY again| R
+    CF -->|Admin/Ops cancel| X([Cancelled])
+    T[IN TRANSIT] -->|not paid in full · refused · nobody home · no code| DF[DELIVERY FAILED]
+    DF -->|produce back at the farm,<br/>farmer marks READY again| R
+    DF -->|Admin/Ops cancel| X
+```
+
+| | **COLLECTION FAILED** | **DELIVERY FAILED** |
+| --- | --- | --- |
+| Where | At the farm gate | At the buyer's door |
+| Who writes it | The delivery agent, on the spot | The delivery agent, on the spot |
+| What they record | A reason — **farmer absent**, **produce not there**, **short** — and a note; a photo if there is something to photograph | A reason — **not paid in full**, **refused**, **nobody home**, **could not show the code** — and a note; a photo of the produce still in the van |
+| Where the produce is | Still the farmer's. Nothing was taken | In our van. It goes back to the farm, and the farmer marks it **received** when it arrives — the mirror of HANDOFF |
+| Money | Nothing moves. Escrow stays held | Nothing moves. No cash is taken — there is no partial payment |
+| Stock | Still set aside for this order until Admin/Ops cancel; then back on the listing | Went out and came back. Not put back on the listing automatically — the farmer decides whether it is still saleable |
+| The buyer is told | "Collection was delayed at the farm. We'll update you." Proposed: the buyer may cancel **free** while the order sits here — the failure was not theirs | They were there, or were not. "We could not complete your delivery: *reason*. Admin/Ops will contact you." |
+| The farmer is told | The reason, in their words | "Your produce is coming back. Mark it received when it arrives." |
+| Admin/Ops see | The order in their queue with the reason, the agent's note and photo | The same |
+| Ways out | The farmer fixes it and marks **READY again** — the order re-enters Admin/Ops' queue for a crew; or Admin/Ops **cancel** — buyer refunded in full, the failure recorded against the farm | Once received back at the farm: the farmer marks **READY again** for a second attempt — whether the buyer gets one, and who pays for the trip, is question 14; or Admin/Ops **cancel** — refund (minus any penalty, question 14) |
+
+Three rules the table relies on:
+
+- **The crew takes nothing unless the order is complete.** A short order is not partly collected; it is COLLECTION FAILED with the reason *short*, and Admin/Ops offer the buyer the same choice as the check's Short outcome. This costs a second trip — but the check is meant to make it rare, and it is the farmer's failure after a Confirmed check. The alternative, collecting what is there and refunding the difference, is simpler for the crew and harder for money; say if you prefer it.
+- **Both states leave through doors that already exist.** The farmer marking READY, and Admin/Ops cancelling. No new Admin/Ops action is needed to resolve either.
+- **One state each, with a reason inside it.** Not a state per reason. "Nobody home" and "would not pay" put the produce in the same place and give Admin/Ops the same decision, so they share a state; the reason is what differs.
+
+Questions 12 and 14 — the buyer has no code; nobody home or the buyer refuses — no longer need their own states. They become reasons on DELIVERY FAILED, and what stays open is only the policy: second attempt or not, at whose cost.
 
 ## Not in this flow, for now
 
@@ -85,14 +123,12 @@ Numbers refer to the [working-answers page](order-delivery-flow-v2-working-answe
 
 - **5.** If the agent finds the farm short, that affects every other buyer on the same listing. Who tells them, and what are they offered? *(engineering's proposal is on the working-answers page)*
 - **6.** When our agent has certified the quality and the buyer still complains about quality, who is responsible — the farmer or us?
-- **8.** What happens today when the van arrives and the produce is not there, is short, or the farmer is absent? Who decides on the spot?
 
 **At the door**
 
 - **11.** In what order do things happen at the door: cash, code, hand over, photo? What if the buyer gives the code and then will not pay?
 - **12.** What does the agent do when the buyer is present but cannot show the code — dead phone, text never arrived? And if a named representative receives, whose code do they give?
-- **13.** How often does a POD buyer come up short or want to pay part? What do agents do today?
-- **14.** Nobody home, or the buyer refuses the crate: retry (who pays), redirect, return to farm, write off? Who decides — agent, supervisor, office?
+- **14.** Nobody home, or the buyer refuses the crate: retry (who pays), redirect, return to farm, write off? Who decides — agent, supervisor, office? *(mechanics settled by the proposal above; only the policy is open)*
 - **15.** One buyer, three farms, same day: three codes at one gate?
 
 **Money**
@@ -123,11 +159,10 @@ Numbers refer to the [working-answers page](order-delivery-flow-v2-working-answe
 **People and messages**
 
 - **31.** Will the same person ever be the field agent, the delivery agent and the confirmer? Are we comfortable with one person holding all three?
-- **32.** Are delivery agents employees or gig workers?
 - **33.** Which moments produce a text, to whom: agent coming; READY; handed over; van on the way; delivered; cash received; complaint raised?
 
 **Not yet in the flow at all:** cancellation by Admin/Ops — at which steps, and what happens to produce already handed off; and who is told what, by text, at each step (33).
 
 ## For engineering
 
-The order carries six live states and one terminal one: **placed → accepted → ready → handed off → in transit → delivered**, plus **cancelled**. Everything else is a fact on the order, not a state: the availability check (agent, time, outcome, photos), the crew assignment (the order's run), the handoff code, the delivery photo, the dispute. Each fact is written once by the actor who owns it — HANDOFF by the farmer, IN TRANSIT and DELIVERED by the delivery agent, the check by the field agent, the crew by Admin/Ops — and nothing is derived twice. Money reads the ledger: escrow, owed, paid, held, refunded, penalised are all postings. Stock moves at most once. The build plan comes after the open questions above close; it starts from the deletion audit's floor, not from today's tables.
+The order carries six live states and one terminal one: **placed → accepted → ready → handed off → in transit → delivered**, plus **cancelled** — and, if the proposal above is accepted, two failure states written by the delivery agent, **collection failed** and **delivery failed**, each carrying a reason, each leaving only through READY or cancellation. Everything else is a fact on the order, not a state: the availability check (agent, time, outcome, photos), the crew assignment (the order's run), the handoff code, the delivery photo, the dispute. Each fact is written once by the actor who owns it — HANDOFF by the farmer, IN TRANSIT and DELIVERED by the delivery agent, the check by the field agent, the crew by Admin/Ops — and nothing is derived twice. Money reads the ledger: escrow, owed, paid, held, refunded, penalised are all postings. Stock moves at most once. The build plan comes after the open questions above close; it starts from the deletion audit's floor, not from today's tables.
