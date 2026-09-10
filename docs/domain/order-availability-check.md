@@ -88,16 +88,16 @@ This is where the check earns its place: every outcome has a consequence and an 
 
 Two rules fall out of this that answer questions on the working-answers page:
 
-- **The buyer's penalty window opens when the farmer marks READY — where the team's flow put it — not at acceptance.** The check sits inside the free window, so a buyer learns whether the produce is there before their free cancel closes. Whether acceptance alone should ever open the penalty is question 34.
+- **The buyer cancels free until the farmer marks READY** (settled 10 September, question 34). The check sits inside the free window, so a buyer learns whether the produce is there before their free cancel closes. Acceptance alone opens no penalty.
 - **A "Short" or "Not available" finding corrects the listing, not just the order.** If the agent finds 30 kg where the listing said 100 kg, the listing's available quantity is reduced so other buyers are not sold produce that isn't there, and every other open order on that listing is re-checked against the new number (question 5).
 
 ## The check has a deadline: 8 working hours
 
-Operations' answer to "how long is a check good for" was **8 working hours**. Read together with "the check is made as soon as the farmer accepts", that cannot be an expiry — the farmer may mark READY days after the check. So this page takes it as the **field agent's deadline**: the check is made within eight working hours of acceptance, and an accepted order still unchecked after that is overdue on Admin/Ops' list. **To confirm.**
+The field agent makes the check within **eight working hours** of the farmer accepting. An accepted order still unchecked after that is overdue on Admin/Ops' list. It is a deadline for the agent, not an expiry on the check — the farmer may mark READY days later and the check still stands. Confirmed by Operations, 10 September.
 
 ## What the handoff still checks
 
-Because the agent may have seen standing crop, the crew at the gate still confirms *what went in the van*: the count per line, against the check's quantities, with the farmer's own code from the working answers (question 10) so both parties have a record. The availability check is the promise; the handoff is the delivery on it.
+Because the agent may have seen standing crop, the crew at the gate still confirms *what went in the van*: the count per line, against the check's quantities, and both parties record it — the farmer's own HANDOFF tap and the crew's IN TRANSIT. The availability check is the promise; the handoff is the delivery on it.
 
 ## What Operations sees
 
@@ -126,7 +126,7 @@ The seven open points from the first draft, answered — and folded into the pag
 | --- | --- | --- |
 | Batching | **One visit per farm per day** | The agent walks the farm once; one check per accepted order waiting there |
 | No field agent in the zone | **The delivery agent makes the check on collection day**, at the gate before collecting | The one case where a crew goes out without a check already on the order — still two acts, form then count |
-| Shelf life | **8 working hours** | Taken as the field agent's **deadline** from acceptance, not an expiry — see above, to confirm |
+| Shelf life | **8 working hours** | The field agent's **deadline** from acceptance, not an expiry — confirmed 10 Sep |
 | Photos | **Three** per produce line | Required; timestamped and located |
 | Location | **Yes**, record it | Captured automatically on submission |
 | Who declares "ready by" | **The farmer, by marking READY** | The ready-by field leaves the agent's form; READY is the farmer's signal to Admin/Ops, made after the check |

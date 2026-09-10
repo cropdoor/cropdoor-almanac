@@ -22,7 +22,7 @@ flowchart TD
     J -->|disputes| K[Payout held;<br/>Admin/Ops investigate]
 ```
 
-Six actors: **Buyer**, **Farmer**, **Field Agent**, **Delivery Agent**, **Driver**, **Admin/Ops**. The driver is part of the crew and taps nothing.
+Six actors: **Buyer**, **Farmer**, **Field Agent**, **Delivery Agent**, **Driver**, **Admin/Ops**. The driver is part of the crew and taps nothing. A farmer must have a smartphone: READY and HANDOFF are their own taps, and nobody taps for them.
 
 ## Who does what
 
@@ -31,7 +31,7 @@ Six actors: **Buyer**, **Farmer**, **Field Agent**, **Delivery Agent**, **Driver
 | 1 | **Buyer** | Places the order. Pays into CropDoor's escrow, or chooses to pay on delivery | The buyer is sent a **handoff code** by text. The produce is set aside for them |
 | 2 | **Farmer** | Accepts the order | The order is real. A field agent's check is now due |
 | 3 | **Field Agent** | Visits the farm within **8 working hours** of acceptance — one visit per farm per day, covering every accepted order there — and submits the check | The platform works out the outcome: **Confirmed**, **Short**, **Not available**, or **Could not check**. The check sits on the order for Admin/Ops to see. Defined on [the check page](order-availability-check.md) |
-| 4 | **Farmer** | Marks the order **READY** when it is packed | The farmer's signal to Admin/Ops that the crew can come |
+| 4 | **Farmer** | Marks the order **READY** when it is packed | The farmer's signal to Admin/Ops that the crew can come. **The buyer's free cancellation ends here** |
 | 5 | **Admin/Ops** | Open the order, see the field agent's check and the farmer's READY, and assign a crew — a delivery agent and a driver | **No check on the order, no crew.** The one exception: a zone with no field agent, where the delivery agent makes the check at the gate before collecting |
 | 6 | **Farmer** | Marks **HANDOFF** when the crew has the produce | The farmer's word that it left their hands. **The buyer can no longer cancel** |
 | 7 | **Delivery Agent** | Marks **IN TRANSIT** | The crew's word that we have it. The buyer sees "on its way"; Admin/Ops see the goods are in our hands |
@@ -43,7 +43,7 @@ Six actors: **Buyer**, **Farmer**, **Field Agent**, **Delivery Agent**, **Driver
 
 | Window | From | To | What the buyer gets back |
 | --- | --- | --- | --- |
-| **Free** | Placing the order | The farmer accepts *(the team's flow)* — proposed to extend to the farmer marking READY, since the check happens in between (question 34) | Everything |
+| **Free** | Placing the order | The farmer marks **READY** *(settled 10 September)*. The check happens inside this window, so the buyer hears whether the produce is there before it closes | Everything |
 | **With a penalty** | End of the free window | The farmer marks HANDOFF | Everything minus the penalty. Amount, who receives it, and how it is collected on a cash order are open (16, 17, 36) |
 | **Not possible** | HANDOFF | — | The produce is on its way. Only Admin/Ops can cancel after this, and must say where the produce is |
 
@@ -71,9 +71,11 @@ Every state has a way of going quiet. These are the lists, in flow order:
 | IN TRANSIT, not DELIVERED by end of day | Delivery agent; then Admin/Ops (27, 14) |
 | Delivered, dispute open | Admin/Ops' dispute queue (21) |
 
-## Retired for now
+## Not in this flow, for now
 
 - **Collection points.** Every collection is at the farm gate, with the farmer or a farm member present. To be revisited once daily operations have taught us. A farm the van cannot reach cannot be served for now.
+- **Tapping on a farmer's behalf.** A farmer must have a smartphone. A flow for farmers without one comes later, if it is ever needed.
+- **A farmer code at the gate.** Engineering proposed one; not needed, because the farmer records the handoff on their own phone.
 
 ## Still open, by step
 
@@ -83,10 +85,7 @@ Numbers refer to the [working-answers page](order-delivery-flow-v2-working-answe
 
 - **5.** If the agent finds the farm short, that affects every other buyer on the same listing. Who tells them, and what are they offered? *(engineering's proposal is on the working-answers page)*
 - **6.** When our agent has certified the quality and the buyer still complains about quality, who is responsible — the farmer or us?
-- **7.** Do farmers have smartphones and data at the gate? If not, who taps READY and "handed over" for them?
 - **8.** What happens today when the van arrives and the produce is not there, is short, or the farmer is absent? Who decides on the spot?
-- **10.** Should the farmer have their own code — read out to the crew — so a disagreement about what was handed over has two records, not one?
-- **34.** What is the cancellation rule while the order waits for the field agent — between "accepted" and "READY"? *(engineering's proposal is on the working-answers page)*
 
 **At the door**
 
