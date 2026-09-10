@@ -140,7 +140,8 @@ nav:
       - Overview: audit/index.md
   - Domain:
       - Overview: domain/index.md
-      - Order → delivery flow v2 (the design, as settled so far): domain/order-delivery-flow-v2.md
+      - Order → delivery flow v2 (the design, decided): domain/order-delivery-flow-v2.md
+      - Building v2 — the order of work: domain/order-delivery-flow-v2-build-order.md
       - Order → delivery flow (as built): domain/order-delivery-flow.md
       - Order → delivery, for operations: domain/order-delivery-flow-for-operations.md
       - The flow you described (questions for ops): domain/order-delivery-flow-v2-questions.md
