@@ -1,6 +1,6 @@
 # The order → delivery flow, v2
 
-*The flow as decided on 10 September — the team's 7 September flow plus every answer recorded on the [working-answers page](order-delivery-flow-v2-working-answers.md) since. Every question but one (the accountant's) is decided. Nothing is built from it yet; the build plan comes next.*
+*The flow as decided on 10 September — the team's 7 September flow plus every answer recorded on the [working-answers page](order-delivery-flow-v2-working-answers.md) since. Every question is decided. Nothing is built from it yet; the build plan comes next.*
 
 ## The flow in one picture
 
@@ -63,6 +63,7 @@ Six actors: **Buyer**, **Farmer**, **Field Agent**, **Delivery Agent**, **Driver
 - **A dispute** resolves to a partial or full refund. Online, it comes back out of escrow; on a cash order, by mobile money to the buyer's registered number.
 - **Farmers pay nothing when they fail** after READY: the buyer gets everything back, fee included, and the farm gets a strike. After a set number its listings pause pending Admin/Ops review.
 - **Refunds:** Short → the difference; Not available or a free-window cancellation → everything; a penalty-window cancellation → everything minus the penalty; a cancellation that is our fault → everything, fee included.
+- **Tax:** none on farm produce in Ghana today, so none on the penalty. Taxes are configured by Admin/Ops (finance) — name, description, percentage — not fixed in code.
 - **The penalty:** deducted from escrow, never chased. The farmer's share goes to what we owe the farmer; the fee, once a crew is assigned, is ours. Ops sets the share and the grace minutes. No deposit on cash orders for now — kept in reserve if failed cash deliveries turn out to be common.
 
 ## The numbers Ops sets
@@ -145,13 +146,9 @@ Questions 12 and 14 — the buyer has no code; nobody home or the buyer refuses 
 - **Tapping on a farmer's behalf.** A farmer must have a smartphone. A flow for farmers without one comes later, if it is ever needed.
 - **A farmer code at the gate.** Engineering proposed one; not needed, because the farmer records the handoff on their own phone.
 
-## Still open
+## Nothing still open
 
-One question, and it is the accountant's, not Operations':
-
-- **24.** Does a cancellation fee attract VAT or levies? What document does the buyer receive for it?
-
-Everything else on the [working-answers page](order-delivery-flow-v2-working-answers.md) is decided. The page keeps the reasoning behind each answer.
+Every question on the [working-answers page](order-delivery-flow-v2-working-answers.md) is decided; that page keeps the reasoning behind each answer. The last to close: farm produce does not attract taxes in Ghana today, so neither does the cancellation fee. Taxes are not fixed in code — Admin/Ops (finance) configure them in the platform as a name, a description and a percentage.
 
 **Texts** (decided). Buyer: placed with the code, accepted, check result, ready at the farm, on its way, delivered, dispute received. Farmer: new order, agent coming, check result, crew assigned, produce coming back, paid.
 
