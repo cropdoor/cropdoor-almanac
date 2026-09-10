@@ -1,6 +1,6 @@
 # The order → delivery flow, v2
 
-*The flow as it stands on 10 September — the team's 7 September flow plus every answer recorded on the [working-answers page](order-delivery-flow-v2-working-answers.md) since. Settled parts are stated plainly. What is still open is listed under each step with its question number. This page is redrawn as answers land; nothing is built from it yet.*
+*The flow as decided on 10 September — the team's 7 September flow plus every answer recorded on the [working-answers page](order-delivery-flow-v2-working-answers.md) since. Every question but one (the accountant's) is decided. Nothing is built from it yet; the build plan comes next.*
 
 ## The flow in one picture
 
@@ -42,10 +42,11 @@ Six actors: **Buyer**, **Farmer**, **Field Agent**, **Delivery Agent**, **Driver
 | 5a | **Delivery Agent** | If the crew arrives and cannot collect — farmer absent, produce not there, short — takes **nothing** and records **COLLECTION FAILED** with the reason | Admin/Ops see the reason and decide; the farmer fixes it and marks READY again, or Admin/Ops cancel. The buyer may cancel free meanwhile — the failure was not theirs |
 | 6 | **Farmer** | Marks **HANDOFF** when the crew has the produce | The farmer's word that it left their hands. **The buyer can no longer cancel** |
 | 7 | **Delivery Agent** | Marks **IN TRANSIT** | The crew's word that we have it. The buyer sees "on its way"; Admin/Ops see the goods are in our hands |
-| 8 | **Delivery Agent** | At the door: asks the buyer for the handoff code, takes cash if paying on delivery, hands over, takes a photo, marks **DELIVERED** | The code is checked on **every** order, online or cash. The order of these acts is engineering's proposal, not yet confirmed (question 11) |
+| 8 | **Delivery Agent** | At the door: asks the buyer for the handoff code, takes cash if paying on delivery, hands over, takes a photo, marks **DELIVERED** | The code is checked on **every** order, online or cash. In that order — code, cash, hand over, photo, confirm — and entering the code does not itself deliver. A buyer without the code gets it resent to their registered phone, or reads it back over a call to that number; whoever receives gives the buyer's code |
 | 8a | **Delivery Agent** | If the order cannot be handed over — not paid in full, refused, nobody home, no code — does **not** hand over, records **DELIVERY FAILED** with the reason, and takes the produce back to the farm, recording it **returned** on arrival | No partial payment, no partial hand-over. Admin/Ops see the reason and decide: a second attempt (the farmer marks READY again) or cancel |
-| 9 | **Buyer** | Rates the farm, or raises a dispute | A dispute **holds the farmer's payout**. Admin/Ops receive it and investigate |
+| 9 | **Buyer** | Rates the produce and the delivery separately, or raises a dispute | A dispute **holds the farmer's payout**. Admin/Ops receive it and investigate; quality and quantity go to the farm, late or damaged or the agent to us. It resolves to a partial or full refund — nothing else for now. Disputes are the buyer's only |
 | 10 | **Admin/Ops** | The payout run pays farmers for delivered, undisputed orders, net of commission | Money leaves escrow only here |
+| any | **Admin/Ops** | Cancel an order at any step, with a reason. After HANDOFF, say where the produce is: returned to the farm, delivered anyway, or disposed of | Full refund when the cancellation is our call; a buyer-fault reason follows the penalty rules |
 
 ## The three cancellation windows
 
@@ -58,9 +59,26 @@ Six actors: **Buyer**, **Farmer**, **Field Agent**, **Delivery Agent**, **Driver
 ## Money, in one line each
 
 - **Online:** the buyer's money sits in CropDoor's escrow from placing until the payout run. Delivery turns it into money *owed* to the farmer; the payout run pays it, net of commission. A dispute holds it.
-- **Cash on delivery:** the delivery agent takes the cash at the door, before handing over. How and when it is banked is open (20).
+- **Cash on delivery:** the delivery agent takes the cash at the door, before handing over, and remits it at the end of the run day — to the office or by mobile money to CropDoor's account — recorded per agent per day. Admin/Ops see cash outstanding per agent.
+- **A dispute** resolves to a partial or full refund. Online, it comes back out of escrow; on a cash order, by mobile money to the buyer's registered number.
+- **Farmers pay nothing when they fail** after READY: the buyer gets everything back, fee included, and the farm gets a strike. After a set number its listings pause pending Admin/Ops review.
 - **Refunds:** Short → the difference; Not available or a free-window cancellation → everything; a penalty-window cancellation → everything minus the penalty; a cancellation that is our fault → everything, fee included.
 - **The penalty:** deducted from escrow, never chased. The farmer's share goes to what we owe the farmer; the fee, once a crew is assigned, is ours. Ops sets the share and the grace minutes. No deposit on cash orders for now — kept in reserve if failed cash deliveries turn out to be common.
+
+## The numbers Ops sets
+
+The flow names the rule; Ops sets the number, and can change it without a rebuild.
+
+| Number | Starting value |
+| --- | --- |
+| Field agent's deadline for the check, from acceptance | 8 working hours |
+| Grace after READY before the buyer's penalty applies | A few minutes |
+| The buyer's penalty: share of the produce value to the farmer | Ops sets |
+| Strikes before cash on delivery is switched off for a buyer | Ops sets |
+| Strikes before a farm's listings pause | Ops sets |
+| Waiting for acceptance before auto-cancel | 24 hours |
+| READY without a crew before the buyer may cancel free | 2 working days |
+| HANDOFF without IN TRANSIT before Admin/Ops are alerted | 1 hour |
 
 ## What the buyer sees
 
@@ -73,14 +91,16 @@ Every state has a way of going quiet. These are the lists, in flow order:
 | Quiet state | Who acts |
 | --- | --- |
 | Accepted, no check after 8 working hours | Field agent |
-| Confirmed, farmer not READY after *n* days *(n open — 26)* | Admin/Ops call the farmer |
-| READY, no crew assigned | Admin/Ops — their own queue |
+| Accepted, not READY after some days | Admin/Ops call the farmer |
+| READY, no crew assigned | Admin/Ops — their own queue. Past two working days the buyer may cancel free; the delay is ours |
+| Placed, not accepted after 24 hours | Nobody — cancelled automatically, full refund |
 | COLLECTION FAILED, with the agent's reason | Admin/Ops — call the farmer, or cancel |
-| HANDOFF, no IN TRANSIT | The farmer says it left; the crew has not said they have it. A real signal, not a stale screen |
-| IN TRANSIT, not DELIVERED by end of day | Delivery agent; then Admin/Ops (27) |
-| DELIVERY FAILED, with the agent's reason | Admin/Ops — second attempt or cancel (policy 14) |
-| DELIVERY FAILED, produce not yet recorded returned | Delivery agent — the produce is still in a van |
-| Delivered, dispute open | Admin/Ops' dispute queue (21) |
+| HANDOFF, no IN TRANSIT within an hour | The farmer says it left; the crew has not said they have it. A real signal, not a stale screen |
+| IN TRANSIT, not DELIVERED by the end of the run day | Delivery agent; then Admin/Ops |
+| DELIVERY FAILED, with the agent's reason | Admin/Ops — one second attempt if the buyer asks and pays the fee again; otherwise cancel with a strike |
+| DELIVERY FAILED, not returned by the end of the next day | Delivery agent — the produce is still in a van |
+| Delivered, dispute open | Admin/Ops' dispute queue |
+| Cash collected, not remitted by the end of the run day | The agent; Admin/Ops see it per agent |
 
 ## When the crew cannot collect, or cannot deliver
 
@@ -125,48 +145,15 @@ Questions 12 and 14 — the buyer has no code; nobody home or the buyer refuses 
 - **Tapping on a farmer's behalf.** A farmer must have a smartphone. A flow for farmers without one comes later, if it is ever needed.
 - **A farmer code at the gate.** Engineering proposed one; not needed, because the farmer records the handoff on their own phone.
 
-## Still open, by step
+## Still open
 
-Numbers refer to the [working-answers page](order-delivery-flow-v2-working-answers.md), where engineering's view is pre-filled for most of them.
+One question, and it is the accountant's, not Operations':
 
-**At the farm**
-
-- **5.** If the agent finds the farm short, that affects every other buyer on the same listing. Who tells them, and what are they offered? *(engineering's proposal is on the working-answers page)*
-- **6.** When our agent has certified the quality and the buyer still complains about quality, who is responsible — the farmer or us?
-
-**At the door**
-
-- **11.** In what order do things happen at the door: cash, code, hand over, photo? What if the buyer gives the code and then will not pay?
-- **12.** What does the agent do when the buyer is present but cannot show the code — dead phone, text never arrived? And if a named representative receives, whose code do they give?
-- **14.** Nobody home, or the buyer refuses the crate: retry (who pays), redirect, return to farm, write off? Who decides — agent, supervisor, office? *(mechanics settled; only the policy is open)*
-- **15.** One buyer, three farms, same day: three codes at one gate?
-
-**Money**
-
-- **18.** If a farmer accepts and then cancels or fails to hand over, does the farmer pay anything? Does the buyer get anything for the wait?
-- **20.** When an agent collects cash, when and how does it reach us? How do we know at month-end which cash is still in agents' pockets?
-- **22.** "Partial refund", "replacement", "goodwill credit" — what actually happens, who moves what money, who pays for a replacement delivery?
-- **23.** A cash buyer wins a complaint — how do we pay them back?
 - **24.** Does a cancellation fee attract VAT or levies? What document does the buyer receive for it?
 
-**Time**
+Everything else on the [working-answers page](order-delivery-flow-v2-working-answers.md) is decided. The page keeps the reasoning behind each answer.
 
-- **25.** How long may an order wait for the farmer to accept before we cancel it for them?
-- **26.** Once READY, how quickly must the van collect? Is produce saleable after that?
-- **27.** How long may an order sit "handed off" or "in transit" before the office is alerted? Who is alerted?
-
-**After delivery**
-
-- **29.** The buyer rates "the farm" — but the van, the agent and the timing were ours. Split the rating? Should a farmer answer a complaint about a late van?
-- **30.** Can a buyer both rate and dispute the same order? Should an upheld complaint change the rating?
-- **35.** Should anyone other than the buyer be able to raise a dispute — a farmer short-paid or refused at the gate, an agent robbed?
-
-**People and messages**
-
-- **31.** Will the same person ever be the field agent, the delivery agent and the confirmer? Are we comfortable with one person holding all three?
-- **33.** Which moments produce a text, to whom: agent coming; READY; handed over; van on the way; delivered; cash received; complaint raised?
-
-**Not yet in the flow at all:** cancellation by Admin/Ops — at which steps, and what happens to produce already handed off; and who is told what, by text, at each step (33).
+**Texts** (decided). Buyer: placed with the code, accepted, check result, ready at the farm, on its way, delivered, dispute received. Farmer: new order, agent coming, check result, crew assigned, produce coming back, paid.
 
 ## For engineering
 
