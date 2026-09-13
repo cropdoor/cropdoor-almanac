@@ -123,6 +123,17 @@ Every state has a way of going quiet. These are the lists, in flow order:
 | DELIVERY FAILED, buyer has not asked for a second attempt by the end of the next day | Nobody — cancelled, strike on the buyer, penalty deducted on an online order |
 | Cash collected, not remitted by the end of the run day | The agent; Admin/Ops see it per agent |
 
+**Van trips.** Nobody sets a trip's label. It reads what happened to the orders on it — decided 13 September, questions 44 to 46:
+
+| A trip reads | When |
+| --- | --- |
+| Planned | Nothing on it has been collected yet |
+| In progress | Something on it has been collected, and not every order is done |
+| Completed | Every order is delivered or cancelled, and the van collected at least one |
+| Cancelled | Every order was cancelled before the van collected anything — the trip was called off before it started |
+
+A finished trip that gets a new order for the same day, zone and crew reads In progress again. A trip's start time is its first collection; its finish time is its last delivery or cancellation, once every order is done.
+
 ## When the crew cannot collect, or cannot deliver
 
 *Settled 10 September. The facts behind it: the check exists to prevent a wasted trip, but when one happens anyway the delivery agent must tell Admin/Ops why (question 8); at the door, an agent who is not paid in full does not hand over, raises it, and takes the produce back to the farm (question 13).*
@@ -174,4 +185,4 @@ Every question on the [working-answers page](order-delivery-flow-v2-working-answ
 
 ## For engineering
 
-The order carries six live states and one terminal one: **placed → accepted → ready → handed off → in transit → delivered**, plus **cancelled**, plus two failure states written by the delivery agent, **collection failed** and **delivery failed**, each carrying a reason, each leaving only through READY or cancellation. The return of failed-delivery produce to the farm is a fact on the order — returned-at, by the delivery agent — not a state. Everything else is a fact on the order, not a state: the availability check (agent, time, outcome, photos), the crew assignment (the order's run), the handoff code, the delivery photo, the dispute. Each fact is written once by the actor who owns it — HANDOFF by the farmer, IN TRANSIT and DELIVERED by the delivery agent, the check by the field agent, the crew by Admin/Ops — and nothing is derived twice. Money reads the ledger: escrow, owed, paid, held, refunded, penalised are all postings. Stock moves at most once. The build plan starts from the deletion audit's floor, not from today's tables; the order of work is on [Building the flow, v2](order-delivery-flow-v2-build-order.md).
+The order carries six live states and one terminal one: **placed → accepted → ready → handed off → in transit → delivered**, plus **cancelled**, plus two failure states written by the delivery agent, **collection failed** and **delivery failed**, each carrying a reason, each leaving only through READY or cancellation. The return of failed-delivery produce to the farm is a fact on the order — returned-at, by the delivery agent — not a state. Everything else is a fact on the order, not a state: the availability check (agent, time, outcome, photos), the crew assignment (the order's run), the handoff code, the delivery photo, the dispute. A run stores no status: planned, in progress, completed and cancelled are read from its orders' pickup times and terminal states, and so are its start and finish times. Each fact is written once by the actor who owns it — HANDOFF by the farmer, IN TRANSIT and DELIVERED by the delivery agent, the check by the field agent, the crew by Admin/Ops — and nothing is derived twice. Money reads the ledger: escrow, owed, paid, held, refunded, penalised are all postings. Stock moves at most once. The build plan starts from the deletion audit's floor, not from today's tables; the order of work is on [Building the flow, v2](order-delivery-flow-v2-build-order.md).

@@ -223,7 +223,7 @@ Everything the deleted columns answered is still answerable — from one place.
 | Is this order crewed? | `deliveries.status = ASSIGNED` | `orders.run_id IS NOT NULL` |
 | Delivery status | `deliveries.status` — 4 writers | `orders.status`, plus `run_id` for "assigned" — *derived* |
 | Run status | `delivery_runs.status` — 4 writers | from the run's orders — see below — *derived* |
-| Refund due | `orders.refund_due`, flipped by hand in two services | paid, cancelled, no `REFUNDED`/`REVERSED` payment, **and no refund row other than `FAILED`** — *derived* |
+| Refund due | `orders.refund_due`, flipped by hand in two services | paid, cancelled, no `REFUNDED`/`REVERSED` payment, **and no refund row other than `FAILED`** — *derived*. **Later decided otherwise:** stored, with a single writer (12 Sep, #226) |
 | Was stock restored? | `orders.stock_restored` | `orders.disposition` — the answer, not the boolean |
 
 The refund clause in bold is the one the flag carried and the existing query did not: `RefundServiceImpl` clears the flag when a refund is *initiated*, while the payment only becomes `REFUNDED` when Paystack confirms it — minutes to days later. Without it, every in-flight refund would read as still owed.
@@ -232,17 +232,23 @@ The refund clause in bold is the one the flag carried and the existing query did
 
 ```mermaid
 flowchart TD
-    A{any order on the run<br/>has pickup_time?} -->|no| P[PLANNED<br/>never rolled — even if every order was cancelled]
-    A -->|yes| B{every order terminal?}
-    B -->|no| I[IN_PROGRESS]
-    B -->|yes| C[COMPLETED<br/>the van rolled, even if all were later cancelled]
+    E{any order<br/>on the run?} -->|no| P0[PLANNED]
+    E -->|yes| T{every order<br/>terminal?}
+    T -->|yes| K{any order has<br/>pickup_time?}
+    K -->|yes| C[COMPLETED<br/>the van rolled, even if all were later cancelled]
+    K -->|no| X[CANCELLED<br/>called off before it started]
+    T -->|no| A{any order has<br/>pickup_time?}
+    A -->|yes| I[IN_PROGRESS]
+    A -->|no| P[PLANNED]
 ```
 
-**Derived over `pickup_time`, not status ordinals** — `CANCELLED` sorts after `IN_TRANSIT` in the enum, so "any order past IN_TRANSIT" would call a run with one pre-pickup cancellation "in progress". Two consequences are behaviour changes and are listed as open questions below: a run re-opened by a new order after completion reads `IN_PROGRESS` rather than today's `PLANNED`, and `started_at` / `completed_at` go — they were a second stored copy of this same fact.
+**Derived over `pickup_time`, not status ordinals** — `CANCELLED` sorts after `IN_TRANSIT` in the enum, so "any order past IN_TRANSIT" would call a run with one pre-pickup cancellation "in progress". *Decided 13 September (CTO), questions 44 to 46 on the [working-answers page](order-delivery-flow-v2-working-answers.md).* The first draft of this diagram read a run whose every order was cancelled before pickup as `PLANNED`; it reads `CANCELLED`, the value the enum always declared and nothing ever wrote. A run re-opened by a new order after completion reads `IN_PROGRESS` rather than today's `PLANNED`. `started_at` and `completed_at` stay on the response, worked out as the first `pickup_time` and the last `delivered_at` or `cancelled_at`; their stored columns go, along with the `DELIVERY_RUN_COMPLETED` audit action.
 
 ## Open questions so far
 
 Numbered for reference, not priority. Each has the evidence and, where the code has an opinion, a recommendation. None is decided, and this is the engineering side's list only — the operations page collects the other half.
+
+*Where each stands, 13 September.* **1** and **2** shipped, in #227 and #228. **3** is decided by the [v2 flow](order-delivery-flow-v2.md), which has no packing state; it lands in step 0's D. **4** is still open: the v2 pages record that delivery agents are employees, which the rule can lean on, but do not decide it. **5** is decided, with a run called off before pickup reading `CANCELLED` and the start and finish times kept; it lands in C3. **6** was decided the other way: refund due is stored with a single writer, shipped in #226.
 
 **1. Drop `deliveries` and `DeliveryStatus`; move `run_id` and `pickup_time` onto `orders`**
 
@@ -281,6 +287,8 @@ Replaces a flag that two services flip by hand with a query that already half-ex
 *Recommend yes.* This is the rule the backend's own guidelines already state: a transition that moves money reads the ledger, not a flag.
 
 ## Build order, once the flow is finalised
+
+*Superseded by [Building the flow, v2](order-delivery-flow-v2-build-order.md), which is the order of work being followed. Kept as the 2 September proposal.*
 
 Provisional — it assumes today's answers to the questions above, and will be redrawn as the conversation changes them. Five PRs, each mergeable on its own and each leaving `develop` deployable. Lighter gate: one review round on the design (done), targeted tests plus a clean verify per PR, mutations only where money or authorization is touched, one live verify after the big PR and one at the end.
 

@@ -154,7 +154,7 @@ None of these have a place in the flow yet. The answers will change it.
 
 - **Farmer app:** the "Dispatch" button goes away. Farmers stop at "ready for collection".
 - **Delivery agent app:** "I've collected this" is already there. Nothing new to learn.
-- **Ops dashboard:** every order shows its crew and when it was actually picked up. Runs show as planned, in progress or finished based on what actually happened to the orders on them, not on a label someone set.
+- **Ops dashboard:** every order shows its crew and when it was actually picked up. Runs show as planned, in progress, finished, or called off when every order on them was cancelled before collection. Each is based on what actually happened to the orders on them, not on a label someone set.
 - **Behind the scenes:** two duplicate records and a hand-set flag are removed. You won't see this, but the bugs it prevents are the ones you would have.
 
 ### A few words we couldn't avoid

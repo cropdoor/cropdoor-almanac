@@ -22,7 +22,7 @@ And by **what it hangs on** — the three shape questions from the analysis. The
 
 **S3 in plain words, and the answer.** The team's flow has two taps at the farm gate, moments apart: the farmer hands over (HANDOFF, step 6), then the delivery agent marks IN TRANSIT (step 7). Engineering asked whether the second tap could be dropped, since the platform knows the van's trip and could show "on its way" by itself. Operations' answer: keep both, because they mean different things from different people. The farmer's HANDOFF is the farmer saying the produce left their hands. The delivery agent's IN TRANSIT is the crew saying *we have it* — for the buyer, the goods are coming; for Admin/Ops, the goods are confirmed in our hands. A handoff with no IN TRANSIT after it is therefore worth a look, not a stale screen.
 
-**Every question on this page is now decided** (10 September). The flow they add up to is drawn on [The flow, v2](order-delivery-flow-v2.md). This page stays as the record of each answer and the reasoning behind it.
+**Every question on this page is now decided** (10 September; 44 to 46, which came up while building step 0, on 13 September). The flow they add up to is drawn on [The flow, v2](order-delivery-flow-v2.md). This page stays as the record of each answer and the reasoning behind it.
 
 **Where engineering had a view, it is pre-filled in the "engineering's view" column** — so each answer could react to a proposal rather than start from blank. That column is history: where it disagrees with the Answer column, the Answer stands (question 15, for instance).
 
@@ -123,13 +123,16 @@ These are FACT questions. Ops can answer them in a sentence each, and the answer
 | 31 | Will the same person ever be the field agent, the delivery agent and the confirmer? Are we comfortable with one person holding all three? | FACT → POLICY | S1 | If S1 collapses the steps, inspector and collector are *the same role by design* — then the question becomes whether the confirmer at the door must be a different person from the collector at the gate. | **Decided 10 Sep (CTO): fine** — they are employees. The record shows who did what at each step; the no-field-agent fallback already assumes it. | No rule keeps the roles apart; every act records its actor |
 | 32 | Are delivery agents employees or gig workers? | FACT | — | Cash custody and the override rule both rest on this. | **Answered 10 Sep: employees.** | Cash in an agent's hands is company cash held by staff — ordinary cash handling, not a gig-worker settlement. The override rule can lean on employment |
 | **37** | **Who assigns the crew, and on what signal?** | FACT | — | *The flow said "is assigned" — no actor named.* | **Answered 9 Sep: Admin/Ops.** When the farmer marks READY, Admin/Ops assign a delivery crew from their dashboard — and only when the order's details show the field agent's check. No check on the order, no crew. | Step 5 gets its actor. The order detail for Admin/Ops shows the check (who, when, outcome, photos); assignment without it is refused |
+| **44** | **A van trip whose every order was cancelled before the van collected anything. What does Admin/Ops' list call it?** | POLICY | — | *From building step 0, 13 Sep.* Today the trip stays "planned" for ever: nothing can move it on, so Admin/Ops see a trip that looks still to come and never will be. "Completed" would read as if the van had done the job. | **Decided 13 Sep (CTO): Cancelled** — the trip was called off before it started. | A trip reads Cancelled when every order on it is cancelled and none was collected. The trip filter selects them |
+| **45** | **A finished trip gets a new order for the same day, zone and crew. What does it read?** | DESIGN | — | *From building step 0, 13 Sep.* There is one trip per day, zone and crew, so the order joins the finished one. Today it jumps back to "planned", which is untrue: the van has already delivered on it. | **Decided 13 Sep (CTO): In progress.** A trip that started with two orders, one delivered and one still waiting, already reads In progress; a reopened trip in the same state reads the same. | None beyond the label |
+| **46** | **A trip shows when it started and when it finished. Once its label comes from its orders, where do those times come from?** | DESIGN | — | *From building step 0, 13 Sep.* Each is written once today, at the moment the label changes, so nothing would write them any more. Removing them would break the screens that show them, for no gain. | **Decided 13 Sep (CTO): worked out from the orders.** Started is the first collection on the trip, blank if nothing was collected; finished is the last delivery or cancellation, once every order is done. | The "trip completed" audit entry goes: nothing reads it, and a label worked out from the orders has no single moment to record |
 | 33 | Which moments produce a text, to whom: agent coming; READY; handed over; van on the way; delivered; cash received; complaint raised? | POLICY | — | Today farmers are told about new orders and cancellations only. Engineering's view: farmer gets *agent coming* and *handed over* (with the count); buyer gets *on the way*, *delivered*, and *cash received (GHS X)* as a receipt. | **Decided 10 Sep (CTO).** Buyer: placed (with the code), accepted, check result, ready at the farm, on its way, delivered, dispute received. Farmer: new order, agent coming, check result, crew assigned, produce coming back, paid. **Plus (audit):** "cash received, GHS X" to the buyer at the door on a cash order — the buyer's only record of the cash, and the protection against the agent-pockets-cash fraud. | Fourteen text moments, all SMS. Nothing on HANDOFF or IN TRANSIT to the farmer — those are the farmer's and crew's own taps |
 
 ---
 
 ## Coverage — every gap and stall, and the question that closes it
 
-So we can see when we are done. A gap with no question was a hole in the analysis itself; four were found and added above (34, 35, 36, 37), and six more by the audit of 10 September (38–43).
+So we can see when we are done. A gap with no question was a hole in the analysis itself; four were found and added above (34, 35, 36, 37), six more by the audit of 10 September (38–43), and three while building step 0 on 13 September (44–46).
 
 | Gap / stall from the analysis | Closed by |
 | --- | --- |
@@ -154,6 +157,7 @@ So we can see when we are done. A gap with no question was a hole in the analysi
 | Gateway fee on free cancellations | **42** |
 | Cancelled stock back on the shelf | **43** |
 | Who assigns the crew (passive in the flow) | **37** |
+| A van trip nothing can ever move on | **44**, 45, 46 (decided) |
 | Availability is per listing | 5 (decided: the check never writes to the listing; each order's own check protects its buyer) |
 | Dispute on a POD order | 23 (decided: mobile money to the buyer) |
 | Cancel/accept race | 28 |
