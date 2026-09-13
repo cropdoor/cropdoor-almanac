@@ -73,7 +73,7 @@ Two moments inside the penalty window where the buyer may still cancel free, bec
 - **The gateway fee** on a free online cancellation is our cost. The penalty appears as a line on the refund's credit note.
 - **Farmers pay nothing when they fail** after READY: the buyer gets everything back, fee included, and the farm gets a strike. After a set number its listings pause pending Admin/Ops review.
 - **Refunds:** Short → the difference; Not available or a free-window cancellation → everything; a penalty-window cancellation → everything minus the penalty; a cancellation that is our fault → everything, fee included.
-- **Tax:** none on farm produce in Ghana today, so none on the penalty. Taxes are configured by Admin/Ops (finance) — name, description, percentage — not fixed in code.
+- **Tax:** none on farm produce in Ghana today, so none on the penalty. Taxes are configured by Admin/Ops (finance) — name, description, percentage, and an on/off switch — not fixed in code. The list starts empty, and a new tax starts off: adding one never changes a price, switching it on does (questions 50–55).
 - **The penalty:** deducted from escrow, never chased. The farmer's share goes to what we owe the farmer; the fee, once a crew is assigned, is ours. Ops sets the share and the grace minutes. No deposit on cash orders for now — kept in reserve if failed cash deliveries turn out to be common.
 
 ## The numbers Ops sets
@@ -91,8 +91,8 @@ The flow names the rule; Ops sets the number, and can change it without a rebuil
 | READY without a crew before the buyer may cancel free | 2 working days |
 | HANDOFF without IN TRANSIT before Admin/Ops are alerted | 1 hour |
 | Accepted without READY before Admin/Ops call, then cancel | 3 working days |
-| A Short check waiting for the buyer's choice | End of the next day |
-| DELIVERY FAILED waiting for the buyer to ask for a second attempt | End of the next day |
+| A Short check waiting for the buyer's choice | End of the next day — a setting, "days after, at end of day" (question 54) |
+| DELIVERY FAILED waiting for the buyer to ask for a second attempt | End of the next day — the same setting |
 | Dispute window after delivery, during which the payout waits | Ops sets |
 | Admin/Ops resolve a dispute within | 5 working days |
 
