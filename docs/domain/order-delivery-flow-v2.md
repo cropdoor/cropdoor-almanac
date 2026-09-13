@@ -123,16 +123,16 @@ Every state has a way of going quiet. These are the lists, in flow order:
 | DELIVERY FAILED, buyer has not asked for a second attempt by the end of the next day | Nobody — cancelled, strike on the buyer, penalty deducted on an online order |
 | Cash collected, not remitted by the end of the run day | The agent; Admin/Ops see it per agent |
 
-**Van trips.** Nobody sets a trip's label. It reads what happened to the orders on it — decided 13 September, questions 44 to 46:
+**Van trips.** Nobody sets a trip's label. It reads what happened to the orders on it — decided 13 September, questions 44 to 48:
 
 | A trip reads | When |
 | --- | --- |
 | Planned | Nothing on it has been collected yet |
 | In progress | Something on it has been collected, and not every order is done |
-| Completed | Every order is delivered or cancelled, and the van collected at least one |
+| Completed | Every order is delivered or cancelled, and the van collected at least one — including a trip that collected produce and then had every order cancelled on the road, because the van did roll |
 | Cancelled | Every order was cancelled before the van collected anything — the trip was called off before it started |
 
-A finished trip that gets a new order for the same day, zone and crew reads In progress again. A trip's start time is its first collection; its finish time is its last delivery or cancellation, once every order is done.
+A **completed** trip that gets a new order for the same day, zone and crew reads In progress again. A **called-off** trip that gets one reads Planned — the van still has not been anywhere. A trip's start time is its first collection; its finish time is its last delivery or cancellation, once every order is done. Nothing records the moment CropDoor decided a trip was over, and nothing needs to.
 
 ## When the crew cannot collect, or cannot deliver
 
