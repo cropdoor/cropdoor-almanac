@@ -44,7 +44,7 @@ sequenceDiagram
     Note over CD: Admin/Ops assign a crew
     CD->>F: a crew is coming
     CD->>DA: you have a collection today
-    F->>CD: hands off; the agent marks IN TRANSIT
+    F->>CD: hands off, and the agent marks IN TRANSIT
     CD->>B: your order is on its way (TEXT)
     DA->>CD: takes cash at the door, if paying on delivery
     CD->>B: we received your cash (TEXT)
