@@ -141,6 +141,7 @@ nav:
   - Domain:
       - Overview: domain/index.md
       - Order → delivery flow v2 (the design, decided): domain/order-delivery-flow-v2.md
+      - Who we tell, and when: domain/order-delivery-notifications.md
       - Building v2 — the order of work: domain/order-delivery-flow-v2-build-order.md
       - Order → delivery flow (as built): domain/order-delivery-flow.md
       - Order → delivery, for operations: domain/order-delivery-flow-for-operations.md
