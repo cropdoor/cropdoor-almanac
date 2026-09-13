@@ -43,15 +43,13 @@ stateDiagram-v2
     AWAITING_PAYMENT --> PENDING : Paystack charge.success
     AWAITING_PAYMENT --> CANCELLED : reconciler, checkout stale 15 min
     PENDING --> ACCEPTED : farmer accepts
-    ACCEPTED --> PROCESSING : farmer marks processing
-    PROCESSING --> READY_FOR_PICKUP : farmer marks ready
+    ACCEPTED --> READY_FOR_PICKUP : farmer marks ready
     READY_FOR_PICKUP --> READY_FOR_PICKUP : admin assigns driver and agent, run_id set
     READY_FOR_PICKUP --> IN_TRANSIT : delivery agent records pickup
     IN_TRANSIT --> IN_TRANSIT : repeat pickup, no-op
     IN_TRANSIT --> DELIVERED : delivery agent confirms
     PENDING --> CANCELLED : buyer or farmer
     ACCEPTED --> CANCELLED : buyer or farmer
-    PROCESSING --> CANCELLED : farmer
     READY_FOR_PICKUP --> CANCELLED : farmer or admin
     IN_TRANSIT --> CANCELLED : admin only, with disposition
     DELIVERED --> [*]
@@ -262,7 +260,7 @@ Two routes into one transition; kept in #222 as a fallback for a hand-off to a d
 
 *Recommend yes.* If a real case appears, it returns as a call into the same `applyPickup` body.
 
-**3. Keep or drop `PROCESSING`**
+**3. Keep or drop `PROCESSING`** — *decided: dropped. Shipped in PR #231.*
 
 Two farmer clicks between `ACCEPTED` and `READY_FOR_PICKUP`. Nothing in the code gives it meaning — no notification copy, no SLA, no payout gate. Dropping it removes a state, an endpoint and a farmer action; keeping it gives buyers "the farm has started packing".
 

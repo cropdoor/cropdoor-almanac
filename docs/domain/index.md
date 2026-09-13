@@ -2,7 +2,7 @@
 
 The business model: farms, buyers, members, listings, orders, and the payment + commission layer that sits underneath them.
 
-CropDoor is a two-sided marketplace. Farms list produce; buyers place orders. Both sides have their own org-scoped role catalog. Orders run through one lifecycle (AWAITING_PAYMENT → PENDING → ACCEPTED → PROCESSING → READY_FOR_PICKUP → IN_TRANSIT → DELIVERED, plus CANCELLED) with two-sided audits. The flow is drawn end to end, with the rebuild under deliberation, in [The order → delivery flow](order-delivery-flow.md) — and in plain language for Operations in [From farm gate to front door](order-delivery-flow-for-operations.md).
+CropDoor is a two-sided marketplace. Farms list produce; buyers place orders. Both sides have their own org-scoped role catalog. Orders run through one lifecycle (AWAITING_PAYMENT → PENDING → ACCEPTED → READY_FOR_PICKUP → IN_TRANSIT → DELIVERED, plus CANCELLED) with two-sided audits. The flow is drawn end to end, with the rebuild under deliberation, in [The order → delivery flow](order-delivery-flow.md) — and in plain language for Operations in [From farm gate to front door](order-delivery-flow-for-operations.md).
 
 ## Planned pages
 
