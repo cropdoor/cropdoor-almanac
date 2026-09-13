@@ -6,7 +6,7 @@
 
 - **Small, focused PRs.** One thing each. Nothing lands that cannot be shown working over real HTTP against a running app the same day.
 - **Testable end to end after every step.** The whole flow — place, accept, ready, crew, collect, deliver, pay — keeps running on `develop` after every merge. A step replaces a piece of the old flow with a piece of the new one; it never leaves a gap.
-- **Delete before add.** The first four PRs remove what the flow no longer needs, so everything after is built on a smaller surface.
+- **Delete before add.** The first six PRs remove what the flow no longer needs, so everything after is built on a smaller surface.
 - **Money last within each step, and never blind.** Any PR that posts to the ledger or decides who may act gets mutation tests: remove the guard, watch the pin fail. Anything that talks to Paystack is verified against Paystack's test keys, confirmed each time.
 - **Merged in order.** Each step is a short stack of PRs merged one after another; `develop` stays green and bootable at every point.
 
@@ -14,7 +14,7 @@
 
 ```mermaid
 flowchart LR
-    S0[0 · The floor<br/>four deletions] --> S1[1 · Settings and taxes]
+    S0[0 · The floor<br/>the deletions] --> S1[1 · Settings and taxes]
     S1 --> S2[2 · Money rails]
     S2 --> S3[3 · The farm<br/>check · READY · crew · cancellation]
     S3 --> S4[4 · The gate<br/>HANDOFF · IN TRANSIT · collection failed]
@@ -24,7 +24,7 @@ flowchart LR
 
 | Step | PRs | What it builds | What you can do end to end after it | How it is verified |
 | --- | --- | --- | --- | --- |
-| **0 · The floor** | A drop the order-history table · B derive "refund due" · C orders own their crew and pickup time; the duplicate delivery record, the stored run status and the farm's dispatch button go · D drop the packing step and the day-before reminder | Nothing new. Four duplicates removed; two facts moved to the one place that owns them | The old flow, unchanged in behaviour: place, accept, ready, crew, pickup, confirm, cancel from every state, refund. The farm can no longer dispatch or mark "processing" | A: the parked branch's mutation check. B and C: mutations on refund derivation and on stock restore by disposition. One live run after C over every actor and state |
+| **0 · The floor** | A drop the order-history table · B "refund due" gets a single writer · C1 orders carry their own crew and pickup time · C2 the duplicate delivery record and the farm's dispatch button go · C3 the run's status derived from its orders · D drop the packing step and the day-before reminder | Nothing new. Four duplicates removed; two facts moved to the one place that owns them | The old flow, unchanged in behaviour: place, accept, ready, crew, pickup, confirm, cancel from every state, refund. The farm can no longer dispatch or mark "processing" | A: the parked branch's mutation check. B: mutations on every writer of the flag. C1 and C2: mutations on the four crew guards and on the pickup write, plus a drift check proving the two copies agreed before the record went. A live run after every PR, over every actor and state |
 | **1 · Settings and taxes** | E the settings catalogue — every number Ops sets, grouped, with defaults, bounds and an audit trail · F the tax catalogue — name, description, percentage, on or off; shipped empty | The place every later step reads its numbers from. Produce tax switched off | Admin changes the delivery fee in the grouped settings screen and the next order uses it. Admin adds a tax and the next order carries it; removes it and the next order does not | Live: order totals before and after; a receipt for an order placed under the old levies still reads |
 | **2 · Money rails** | G refunds of a stated amount, with the credit-note line · H the payout run reads the ledger: pays what is owed, skips an order with an open dispute or one still inside its dispute window · I refund a cash buyer by mobile money | The three money moves every later step needs, each usable on its own | Admin refunds part of an order and the ledger and credit note agree. A disputed order is skipped by the payout run; it is paid once resolved. A cash order's refund reaches the buyer's phone | Mutations on all three. G and I against Paystack test keys |
 | **3 · The farm** | J the availability check — the agent's form, three photos a line, the derived outcome, Short and Not-available handled, the overdue list · K READY and the crew gate — no check, no crew; the no-field-agent exception; the acceptance and READY deadlines; the crew-assigned text · L the cancellation windows — free until READY plus grace; the penalty from escrow to the farmer; strikes for cash buyers, cash switched off after the limit; farm strikes; Admin/Ops cancel with a fault | The farm side of the decided flow. **Ops can start operating on it:** field agents check, farmers mark READY, Admin/Ops assign crews from the order detail | Accept → check (all four outcomes) → READY → crew → pickup → confirm, online and cash. Cancel in each window and see the right refund and penalty. A buyer with too many strikes is refused cash on delivery | Mutations on L. Live run after L with every window and every check outcome, flows listed and reviewed first |
@@ -32,7 +32,14 @@ flowchart LR
 | **5 · The door** | P the handoff code — sent at placement, verified at the door with no signal · Q the delivery photo, required · R DELIVERY FAILED, the return to the farm, the alerts · S the second attempt — the buyer asks and pays the fee again, or the order is cancelled with a strike · T "cash received" text and the agent's daily cash remittance | The door as decided; every state now has an exit | The full flow, online and cash, with every failure branch: wrong code, no photo, not paid in full, nobody home, a second attempt, a cash day remitted | Mutations on S. **The big live run:** the whole flow end to end, both payment methods, every branch |
 | **6 · After delivery** | U disputes — produce or delivery, the payout held, Admin/Ops name the amount and who bears it, the refund follows, the five-day clock · V two ratings · W the API document rewritten; the old flow pages retired | The flow complete | A buyer disputes, Admin/Ops resolve against the farm or against us, the buyer is refunded, the farmer is paid what is left at the next run. Two ratings on one order | Mutations on U. Live run of a dispute through to a mobile-money refund |
 
-Twenty-three PRs. Steps 0 to 2 are deletions and money plumbing with no new screen for anyone; step 3 is the first thing Operations can use; step 5 is the first time the whole decided flow exists.
+Twenty-five PRs. Steps 0 to 2 are deletions and money plumbing with no new screen for anyone; step 3 is the first thing Operations can use; step 5 is the first time the whole decided flow exists.
+
+## What changed since 10 September
+
+This page is the living order of work, so it is corrected as the CTO decides and as the work lands. Two corrections so far, both to step 0.
+
+- **"Refund due" is stored with a single writer, not derived.** Decided by the CTO during B, 12 September. The flag now has exactly one writer called from every path that can change the answer, and a report-only check that names any order where the flag and the refund records disagree. The reason to store it stands on its own: an admin list that filters on it should not re-run a derivation per row, and one writer is easier to prove correct than a rule copied into every reader. Nothing is derived twice either way.
+- **C became three PRs, and the run's status is still stored.** C1 put the crew and pickup time on the order and proved the copies agreed; C2 deleted the duplicate record and the farm's dispatch button. Deriving the run's status turned out not to be needed for either, so it is C3 and still to do. It is worth keeping inside step 0 rather than deferring: it is a deletion, the surface shrinks before everything after it, and the stranded-run problem Operations sees today comes from that stored status being the authority.
 
 ## Why this order
 
