@@ -121,19 +121,31 @@ sequenceDiagram
 | Field agent | An order needs a check | This order is waiting for you | yes | — | — |
 | Delivery agent | A crew is assigned | You have a collection today | yes | — | — |
 
-**Admin and Ops get no per-order message.** They have watch lists on
-[the flow](order-delivery-flow-v2.md), which are a queue they work through. A notification for every
-stalled order is a queue nobody reads.
+**Admin and Ops work watch lists, with one exception.** The lists on
+[the flow](order-delivery-flow-v2.md) are a queue they work through, and a notification for every
+stalled order is a queue nobody reads. The exception is **a handoff with no IN TRANSIT within the
+hour**, which is an alert: it is the only moment where produce has left the farmer's hands and nobody
+has yet said they have it.
 
-**The driver gets nothing.** A driver has no account and taps nothing; the delivery agent riding with
-them is the one we tell.
+**When a farm or a buyer has several people, one person is told and everybody sees it.** The owner
+gets the text and the email; the rest of the team sees the same message in the shared feed when they
+open it. Five people on one farm should not mean five texts about one order.
+
+**A check is offered to every field agent in that farm's zone.** Agents belong to zones, not to
+orders, and Operations has no rule yet for picking one. With one agent to a zone today it is the same
+message either way.
+
+**The driver gets nothing — for now.** A driver taps nothing today and none of them has an account,
+so the delivery agent riding with them is the one we tell. This is "not yet" rather than "never": the
+door is left open deliberately, in case drivers are given the app later.
 
 ## The five texts, and why only those
 
 A text costs money every time it is sent, and a single buyer could receive eleven messages on one
 order. These five are the ones where someone has to do something, now:
 
-- **the handoff code**, because they need it at the door and may not have the app open;
+- **the handoff code**, because they need it at the door and may not have the app open — and at the
+  door, an agent can have it **resent** to the buyer's registered phone;
 - **on its way**, because someone has to be there to receive it;
 - **cash received**, because it is a receipt for money that changed hands;
 - **collection delayed** and **could not deliver**, because both need a decision from the buyer.
