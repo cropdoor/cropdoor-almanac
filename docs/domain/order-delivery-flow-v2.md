@@ -181,7 +181,7 @@ Questions 12 and 14 — the buyer has no code; nobody home or the buyer refuses 
 
 Every question on the [working-answers page](order-delivery-flow-v2-working-answers.md) is decided; that page keeps the reasoning behind each answer. The last to close: farm produce does not attract taxes in Ghana today, so neither does the cancellation fee. Taxes are not fixed in code — Admin/Ops (finance) configure them in the platform as a name, a description and a percentage.
 
-**Texts** (decided). Buyer: placed with the code, accepted, check result, ready at the farm, on its way, delivered, dispute received — and, when they happen, collection delayed, delivery could not be completed, cancelled and refunded, cash received. Farmer: new order, agent coming, check result, crew assigned, collection failed with the reason, produce coming back, paid.
+**Texts** (decided). Buyer: placed with the code, accepted, ready at the farm, on its way, delivered, dispute received — and, when they happen, collection delayed, delivery could not be completed, cancelled and refunded, cash received, and — when the check finds less than was ordered — the choice to take the reduced quantity or cancel free. **The buyer is never told about the check itself** (13 Sep): it is an internal supply measure, and they hear only what changed about their own order. Farmer: new order, agent coming, check result, crew assigned, collection failed with the reason, produce coming back, paid.
 
 ## For engineering
 

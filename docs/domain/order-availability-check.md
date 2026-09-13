@@ -82,10 +82,10 @@ This is where the check earns its place: every outcome has a consequence and an 
 
 | Outcome | The order | The buyer | The farmer | Money |
 | --- | --- | --- | --- | --- |
-| **Confirmed** | May be marked READY by the farmer when packed; Admin/Ops then assign a crew | Told "confirmed available" | Told the check passed | Nothing moves |
-| **Short** | Paused until the buyer chooses — until the end of the next day, then cancelled with a full refund | Offered a choice: **take the reduced quantity** (price adjusts down; for online payment the difference is refunded) or **cancel free** | Told the finding | Refund of the difference, or full refund — no penalty either way |
-| **Not available** | Cancelled | Refunded in full, no penalty, told why in plain words | Told; the finding is recorded against the farm | Full refund |
-| **Could not check** | Unchanged | Told the visit is rescheduled; the free-cancel window stays open | Told when the agent will return | Nothing |
+| **Confirmed** | May be marked READY by the farmer when packed; Admin/Ops then assign a crew | **Told nothing.** Their next message is "ready at the farm" | Told the check passed | Nothing moves |
+| **Short** | Paused until the buyer chooses — until the end of the next day, then cancelled with a full refund | Offered a choice about **their order**: take the reduced quantity (price adjusts down; for online payment the difference is refunded) or cancel free. **No agent, no visit, no farm finding is mentioned** | Told the finding | Refund of the difference, or full refund — no penalty either way |
+| **Not available** | Cancelled | Refunded in full, no penalty, and told their order could not be filled. **Not told what the agent saw** | Told; the finding is recorded against the farm | Full refund |
+| **Could not check** | Unchanged | **Told nothing.** The free-cancel window stays open regardless, and a delay they were never promised is not news | Told when the agent will return | Nothing |
 
 Two rules fall out of this that answer questions on the working-answers page:
 
@@ -112,12 +112,25 @@ Because the agent may have seen standing crop, the crew at the gate still looks 
 | Moment | Farmer | Buyer |
 | --- | --- | --- |
 | Check scheduled | "A CropDoor agent will visit within the next working day to confirm your order *ORD-…*." | — |
-| Confirmed | "*ORD-…* is confirmed. Mark it READY on the app when it is packed for collection." | "Your order has been checked and confirmed available." |
-| Short | "We found *N* of *M* available for *ORD-…*. The buyer has been asked whether to proceed." | "Only *N* of the *M* you ordered is available. Take *N* for GHS *X*, or cancel free?" |
-| Not available | "We could not confirm *ORD-…*; it has been cancelled. Reason: *…*" | "Your order was cancelled because the produce was not available as listed. You've been refunded in full." |
-| Could not check | "Our agent could not reach you today. We'll return the next working day." | "Our check is delayed by a day. You can still cancel free." |
+| Confirmed | "*ORD-…* is confirmed. Mark it READY on the app when it is packed for collection." | — |
+| Short | "We found *N* of *M* available for *ORD-…*. The buyer has been asked whether to proceed." | "Only *N* of the *M* you ordered can be supplied. Take *N* for GHS *X*, or cancel free?" |
+| Not available | "We could not confirm *ORD-…*; it has been cancelled. Reason: *…*" | "*ORD-…* has been cancelled because it cannot be supplied. You've been refunded in full." |
+| Could not check | "Our agent could not reach you today. We'll return the next working day." | — |
 
 Text messages, not email — farmers do not read email.
+
+**The check is internal. The buyer hears only about their own order** (decided 13 September). No
+message to a buyer names the agent, the visit, the photos, the quality judgement or the farm's
+record. Two of the four outcomes reach them at all, and both because their order changed: a short
+order, which asks them to choose, and a cancelled one. Confirmed and Could-not-check are silent —
+the buyer's next message is "ready at the farm", and a delay they were never promised is not news.
+
+**Why it is drawn this way.** The check is a supply-reliability instrument: it grades a farm, it
+accumulates against that farm, and it exists so Admin/Ops can decide whether to send a van. A buyer
+being shown "our agent found the tomatoes below the listed grade" turns an internal measure into a
+report on a named farm, which is not a thing to hand a customer. What the buyer is owed is the
+consequence — how much they can have, or that they cannot have it — and that they still get, inside
+the free-cancel window.
 
 ## Operations' answers (9 September)
 

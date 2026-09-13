@@ -37,8 +37,8 @@ sequenceDiagram
     CD->>B: the farm accepted your order
     CD->>FA: an order is waiting for your check
     FA->>CD: records what is actually available
-    CD->>B: the check result
     CD->>F: the check result
+    Note over CD: the buyer hears nothing unless their order changed
     F->>CD: marks READY
     CD->>B: ready at the farm
     Note over CD: Admin/Ops assign a crew
@@ -92,7 +92,7 @@ sequenceDiagram
 | --- | --- | --- | --- | --- |
 | They place the order | Placed, with the handoff code for the door | yes | yes | **yes** |
 | The farm accepts | The farm has your order | yes | — | — |
-| The check is done | What the field agent found | yes | yes | — |
+| Their order cannot be filled in full | How much can be supplied — take it, or cancel free. **A question with a clock**: unanswered by the end of the next day, the order cancels with a full refund | yes | yes | — |
 | The farmer marks it ready | Ready at the farm | yes | — | — |
 | The crew collects it | On its way | yes | — | **yes** |
 | Cash is taken at the door | We received your cash | yes | yes | **yes** |
@@ -130,6 +130,11 @@ has yet said they have it.
 **When a farm or a buyer has several people, one person is told and everybody sees it.** The owner
 gets the text and the email; the rest of the team sees the same message in the shared feed when they
 open it. Five people on one farm should not mean five texts about one order.
+
+**The buyer is never told about the check.** It is an internal supply measure: it grades a farm, it
+accumulates against that farm, and it exists so Operations can decide whether to send a van. A buyer
+hears only what changed about *their own order* — that less can be supplied, or that it cannot be
+supplied at all — and never that an agent visited, what they saw, or how the farm scored.
 
 **A check is offered to every field agent in that farm's zone.** Agents belong to zones, not to
 orders, and Operations has no rule yet for picking one. With one agent to a zone today it is the same
