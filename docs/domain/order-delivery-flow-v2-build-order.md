@@ -51,7 +51,7 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 0 · The floor | D2 | the packing step goes | **Done** | #231 |
 | 1 · Settings and taxes | E1 | every setting declares what it holds and what is legal; the delivery fee moves onto it | **Done** | #233 |
 | 1 · Settings and taxes | E2a | the settings screen — a tab per group, saved all or nothing | **Done** | #234 |
-| 1 · Settings and taxes | E2b | every save recorded — who, the old value, the new — and a save locks what it changes | **In review** | #235 |
+| 1 · Settings and taxes | E2b | every save recorded — who, the old value, the new — and a save locks what it changes | **Done** | #235 |
 | 1 · Settings and taxes | F1 | the three Ghanaian levies go; new orders carry no tax | Not started | — |
 | 1 · Settings and taxes | F2 | taxes become rows — name, description, percentage, on/off; a new tax starts off | Not started | — |
 | 1 · Settings and taxes | F3 | the platform commission rate on the Finance tab | Not started | — |
@@ -75,7 +75,7 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 7 · After delivery | V | two ratings | Not started | — |
 | 7 · After delivery | W | the API document rewritten; the old flow pages retired | Not started | — |
 
-Nine of thirty-two are merged. **#232 is not one of them:** it corrected a Javadoc about the buyer's cancellation window, found while building step 0.
+Ten of thirty-two are merged. **#232 is not one of them:** it corrected a Javadoc about the buyer's cancellation window, found while building step 0.
 
 ## What changed since 10 September
 
