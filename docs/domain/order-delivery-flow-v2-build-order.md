@@ -55,7 +55,7 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 1 · Settings and taxes | F1 | the three Ghanaian levies go; new orders carry no tax | **Done** | #236 |
 | 1 · Settings and taxes | F2a | a tax is a row, and an order is charged every active one; the catalogue starts empty | **Done** | #237 |
 | 1 · Settings and taxes | F2b | finance maintains taxes — the list, adding one, switching it on and off, deleting one never used | **Done** | #238 |
-| 1 · Settings and taxes | F3 | the platform commission rate on the Finance tab | Not started | — |
+| 1 · Settings and taxes | F3 | the platform commission rate on the Finance tab | **In review** | #239 |
 | 2 · Telling people | X | the notification frame — in-app beside email and SMS, the feed, the categories, staff as recipients | Not started | — |
 | 2 · Telling people | Y | the eighteen messages the flow names, moved onto the frame | Not started | — |
 | 3 · Money rails | G | refunds of a stated amount, with the credit-note line | Not started | — |
