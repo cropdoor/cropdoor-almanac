@@ -56,7 +56,7 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 1 · Settings and taxes | F2a | a tax is a row, and an order is charged every active one; the catalogue starts empty | **Done** | #237 |
 | 1 · Settings and taxes | F2b | finance maintains taxes — the list, adding one, switching it on and off, deleting one never used | **Done** | #238 |
 | 1 · Settings and taxes | F3 | the platform commission rate on the Finance tab | **Done** | #239 |
-| 2 · Telling people | X1 | the feed — in-app as a real channel, every message written there first, one channel's failure unable to stop another | Not started | — |
+| 2 · Telling people | X1 | the feed — in-app as a real channel, every message written there first, one channel's failure unable to stop another | **In review** | #240 |
 | 2 · Telling people | X2a | how a message is sent — the channel per message, and a status that tells nobody no longer compiles | Not started | — |
 | 2 · Telling people | X2b | the outbox — recorded with the thing that caused it, then sent by a dispatcher that can retry | Not started | — |
 | 2 · Telling people | X3 | who can be told — staff as recipients, the four kinds a person switches off, one owner told per org | Not started | — |
