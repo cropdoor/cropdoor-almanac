@@ -55,7 +55,7 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 1 · Settings and taxes | F1 | the three Ghanaian levies go; new orders carry no tax | **Done** | #236 |
 | 1 · Settings and taxes | F2a | a tax is a row, and an order is charged every active one; the catalogue starts empty | **Done** | #237 |
 | 1 · Settings and taxes | F2b | finance maintains taxes — the list, adding one, switching it on and off, deleting one never used | **Done** | #238 |
-| 1 · Settings and taxes | F3 | the platform commission rate on the Finance tab | **In review** | #239 |
+| 1 · Settings and taxes | F3 | the platform commission rate on the Finance tab | **Done** | #239 |
 | 2 · Telling people | X1 | the feed — in-app as a real channel, every message written there first, read state and the unread count | Not started | — |
 | 2 · Telling people | X2 | how a message is sent — the channel per message, isolated failures, no message sent twice | Not started | — |
 | 2 · Telling people | X3 | who can be told — staff as recipients, the four kinds a person switches off, one owner told per org | Not started | — |
@@ -78,7 +78,7 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 7 · After delivery | V | two ratings | Not started | — |
 | 7 · After delivery | W | the API document rewritten; the old flow pages retired | Not started | — |
 
-Thirteen of thirty-five are merged. **#232 is not one of them:** it corrected a Javadoc about the buyer's cancellation window, found while building step 0.
+Fourteen of thirty-five are merged, and **steps 0 and 1 are complete**. **#232 is not one of them:** it corrected a Javadoc about the buyer's cancellation window, found while building step 0.
 
 ## What changed since 10 September
 
