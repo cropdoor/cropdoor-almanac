@@ -1,6 +1,6 @@
 # The order → delivery flow, v2
 
-*The flow as decided on 10 September — the team's 7 September flow plus every answer recorded on the [working-answers page](order-delivery-flow-v2-working-answers.md) since. Every question is decided. Nothing is built from it yet; the build plan comes next.*
+*The flow as decided on 10 September — the team's 7 September flow plus every answer recorded on the [working-answers page](order-delivery-flow-v2-working-answers.md) since. Every question is decided, and **it is being built** — [the order of work](order-delivery-flow-v2-build-order.md) says in what order, and its status table says where each PR stands. Steps 0 and 1 are merged. This page stays the design: where the code differs from it, the code is what is wrong.*
 
 ## The flow in one picture
 
@@ -93,6 +93,14 @@ The flow names the rule; Ops sets the number, and can change it without a rebuil
 | Accepted without READY before Admin/Ops call, then cancel | 3 working days |
 | A Short check waiting for the buyer's choice | End of the next day — a setting, "days after, at end of day" (question 54) |
 | DELIVERY FAILED waiting for the buyer to ask for a second attempt | End of the next day — the same setting |
+
+Three more are already live, on the admin settings screen, since step 1:
+
+| Number | Starting value |
+| --- | --- |
+| The delivery fee on an order | GHS 25.00 |
+| Each tax's percentage, and whether it applies at all | The list starts empty; a new tax starts off |
+| The platform's commission on an order | 10% |
 | Dispute window after delivery, during which the payout waits | Ops sets |
 | Admin/Ops resolve a dispute within | 5 working days |
 
