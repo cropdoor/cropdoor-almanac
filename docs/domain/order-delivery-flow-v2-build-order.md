@@ -57,7 +57,7 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 1 · Settings and taxes | F2b | finance maintains taxes — the list, adding one, switching it on and off, deleting one never used | **Done** | #238 |
 | 1 · Settings and taxes | F3 | the platform commission rate on the Finance tab | **Done** | #239 |
 | 2 · Telling people | X1 | the feed — in-app as a real channel, every message written there first, one channel's failure unable to stop another | **Done** | #240 |
-| 2 · Telling people | X2a | how a message is sent — the channel per message, and a status that tells nobody no longer compiles | **In review** | #241 |
+| 2 · Telling people | X2a | how a message is sent — the channel per message, and a status that tells nobody no longer compiles | **Done** | #241 |
 | 2 · Telling people | X2b | the outbox — recorded with the thing that caused it, then sent by a dispatcher that can retry | Not started | — |
 | 2 · Telling people | X3 | who can be told — staff as recipients, the four kinds a person switches off, one owner told per org | Not started | — |
 | 2 · Telling people | Y | the messages that can exist today, moved onto the frame | Not started | — |
@@ -79,7 +79,7 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 7 · After delivery | V | two ratings | Not started | — |
 | 7 · After delivery | W | the API document rewritten; the old flow pages retired | Not started | — |
 
-Fifteen of thirty-six are merged: **steps 0 and 1 are complete**, and step 2 has begun. **#232 is not one of them:** it corrected a Javadoc about the buyer's cancellation window, found while building step 0.
+Sixteen of thirty-six are merged: **steps 0 and 1 are complete**, and step 2 is two PRs in. **#232 is not one of them:** it corrected a Javadoc about the buyer's cancellation window, found while building step 0.
 
 ## What changed since 10 September
 
