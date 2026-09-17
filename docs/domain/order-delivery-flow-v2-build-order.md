@@ -59,7 +59,7 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 2 · Telling people | X1 | the feed — in-app as a real channel, every message written there first, one channel's failure unable to stop another | **Done** | #240 |
 | 2 · Telling people | X2a | how a message is sent — the channel per message, and a status that tells nobody no longer compiles | **Done** | #241 |
 | 2 · Telling people | X2b | the outbox — recorded with the thing that caused it, then sent by a dispatcher that can retry | **Done** | #242 |
-| 2 · Telling people | X3 | who can be told — staff as recipients, the work switch, one owner told per org | Not started | — |
+| 2 · Telling people | X3 | who can be told — staff as recipients, the work switch, one owner told per org | In review | #245 |
 | 2 · Telling people | Y | the messages that can exist today, moved onto the frame | Not started | — |
 | 3 · Money rails | G | refunds of a stated amount, with the credit-note line | Not started | — |
 | 3 · Money rails | H | the payout run reads the ledger and skips a disputed order | Not started | — |
