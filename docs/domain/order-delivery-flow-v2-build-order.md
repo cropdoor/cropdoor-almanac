@@ -79,7 +79,7 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 7 · After delivery | V | two ratings | Not started | — |
 | 7 · After delivery | W | the API document rewritten; the old flow pages retired | Not started | — |
 
-Seventeen of thirty-six are merged: **steps 0 and 1 are complete**, and step 2 is three PRs in. **#232 is not one of them:** it corrected a Javadoc about the buyer's cancellation window, found while building step 0.
+Seventeen of thirty-six are merged: **steps 0 and 1 are complete**, and step 2 is three PRs in. **#232 and #243 are not among them:** #232 corrected a Javadoc about the buyer's cancellation window, found while building step 0, and #243 lowered how many messages the dispatcher sends at once, decided while reading X2b's live run.
 
 ## What changed since 10 September
 
