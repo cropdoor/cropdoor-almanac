@@ -40,10 +40,16 @@ is suspended; **the harm is that the farm has nobody accountable and nobody noti
 
 ## What was built first
 
-**Suspension now stops new orders, at the one place both routes pass through.** Placing an order
-refuses a farm that is not active, whether the buyer came from the basket or straight to the
-placement endpoint. It is the whole of question 4's answer and the only part of this page that
-exists in code today.
+**Suspension now stops new orders, and stops money reaching a closed farm.** Placing an order refuses
+a farm that is not active, whether the buyer came from the basket or straight to the placement
+endpoint; and paying for an order placed earlier is refused too, because an unpaid order is not the
+"already in flight" case question 5 protects — nothing has been accepted or packed, and no money has
+moved. Both refuse a **deleted** farm as well: deleting one leaves whatever status it had, so a deleted
+farm still reads active. This is the whole of question 4's answer, and the part of question 5 that
+turned out to be a gap rather than a decision.
+
+A buyer left holding an unpaid order can cancel it. Taking the money and refunding it would be worse
+for everyone.
 
 ## The questions, answered
 
