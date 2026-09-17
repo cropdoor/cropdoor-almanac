@@ -161,6 +161,7 @@ nav:
       - Resiliency, audit & ops: payments/resiliency-audit-and-ops.md
   - Notifications:
       - Overview: notifications/index.md
+      - How a message gets out (the industry, and what we chose): notifications/how-a-message-gets-out.md
   - Operations:
       - Overview: operations/index.md
   - Contributing:
