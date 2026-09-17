@@ -1,8 +1,9 @@
 # Who owns a farm, and what suspending someone should mean
 
-**Open question for the team.** Nothing here is decided, and nothing here is built. It was found on
-17 September 2026 while building the notification work, when a test deliberately suspended a farm
-owner and the farm carried on trading.
+**Answered by the CTO on 17 September 2026**, the day it was found — while building the notification
+work, when a test deliberately suspended a farm owner and the farm carried on trading. The answers are
+below; **none of it is built yet** except the first piece, which went out on its own because it was a
+live gap.
 
 ## The short version
 
@@ -20,7 +21,8 @@ cannot be handed to anyone else**, so a suspended owner leaves a farm that can n
 | Suspending a **farm** is a separate admin act, on its own screen | nothing links the two |
 | A farm can be suspended only from active, by an admin, with a reason | it is deliberate and reversible |
 | Any member holding the fulfil permission can accept and dispatch orders | **a farm can trade without its owner** |
-| A suspended farm's listings leave the marketplace — but the basket checks only the **listing's** status | a buyer holding a link can still order from a suspended farm |
+| A suspended farm's listings leave the marketplace, and the basket refuses to add one | browsing and adding are already closed |
+| **Placing an order never checked the farm at all** — it loaded the farm by id, then checked only each listing's own status | a buyer with a direct link, or an item added before the suspension, could order from a suspended farm. **Closed — see "What was built first"** |
 
 ## Why it matters, in two different farms
 
@@ -36,28 +38,35 @@ answer is almost certainly to replace the owner, not to close the farm.
 So "should suspending an owner suspend the farm?" has no single answer. The harm is not that the owner
 is suspended; **the harm is that the farm has nobody accountable and nobody notices.**
 
-## The questions, for Operations and the CTO
+## What was built first
 
-| # | Question | Why it needs an answer |
+**Suspension now stops new orders, at the one place both routes pass through.** Placing an order
+refuses a farm that is not active, whether the buyer came from the basket or straight to the
+placement endpoint. It is the whole of question 4's answer and the only part of this page that
+exists in code today.
+
+## The questions, answered
+
+| # | Question | **Decided 17 September (CTO)** |
 |---|---|---|
-| 1 | **When an admin suspends someone who owns a farm, what should they be told, and what should they choose?** Today they are told nothing and choose nothing. | An admin can end a business by accident, in one click, and find out later |
-| 2 | **Should a farm with no active owner stop taking new orders?** | This is narrower than suspending the farm, it addresses the real harm, and it heals itself the moment ownership is restored |
-| 3 | **Should ownership be transferable — and by whom?** The owner themselves, or an admin, or both? | Without it, an owner suspension is permanent in effect. It is also what a real business needs when a founder leaves |
-| 4 | **What should suspending a farm actually stop?** Today it hides the listings but does not block an order placed from a direct link. | Deciding question 1 on top of a switch that does not stop trade would give false comfort |
-| 5 | **What happens to orders already in flight** when a farm is suspended — accepted, paid, produce packed? | Buyer money sits in escrow. Suspension must not strand it |
-| 6 | **Is suspending a person the same as suspending them as an owner?** A compromised account is not a dishonest farm. | The reason for the suspension may decide the answer to every question above |
+| 1 | When an admin suspends someone who owns a farm, what are they told, and what do they choose? | **Tell them, and make them choose.** The screen says this person owns that farm, and offers two acts: the person alone, or the person and the farm. An admin must never end a business without meaning to |
+| 2 | Should a farm with no active owner stop taking new orders? | **Yes.** It is the real harm — an order nobody is accountable for — and it is narrower than suspending the farm. It clears itself the moment the farm has an owner again, however that happens |
+| 3 | Should ownership be transferable, and by whom? | **Yes: by the owner, and by an admin.** The owner for succession, the admin for when the owner is gone, suspended, or unreachable. Without it every owner suspension is permanent in effect |
+| 4 | What should suspending a farm actually stop? | **New orders.** Refused where an order is placed, so both the basket and a direct link are covered by one rule. Browsing and adding were already closed |
+| 5 | What happens to orders already in flight? | **They run to delivery.** Produce is promised and money may already be held in escrow; cancelling them would strand the buyer. A suspended farm is stopped from taking more, not from finishing what it owes |
+| 6 | Is suspending a person the same as suspending them as an owner? | **No.** A compromised account is not a dishonest farm. That is precisely why question 1 is a choice an admin makes rather than a rule the system applies |
 
-## A shape worth considering
+**The thread through all six: do not cascade — choke at the right point.** One refusal where an order is
+placed, one prompt where a person is suspended, and ownership that can move. A farm and the person who
+owns it are two things, and the system should stop asking one question when it means the other.
 
-Not a proposal, a starting point: **do not cascade automatically.**
+## What is still to build
 
-1. When an admin suspends an org owner, **say so and make them decide** — the farm as well, or the
-   person only.
-2. **A farm with no active owner refuses new orders** — the honest statement of "nobody is home",
-   whether the owner was suspended, left, or was never replaced.
-3. **Build ownership transfer**, so that the answer to a departed owner is a new one rather than a
-   dead farm.
-4. **Make a farm's suspension actually stop trade** before anything else leans on it.
+1. **The admin's choice when suspending an org owner** (question 1) — today they are told nothing.
+2. **A farm with no active owner refuses new orders** (question 2) — the placement guard exists; this
+   is a second reason to refuse, and it needs the wording that says which is which.
+3. **Ownership transfer** (question 3) — the largest of the three, and the one a real business needs
+   first when a founder leaves.
 
 ## How it was found
 

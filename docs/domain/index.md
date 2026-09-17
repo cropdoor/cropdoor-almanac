@@ -4,11 +4,12 @@ The business model: farms, buyers, members, listings, orders, and the payment + 
 
 CropDoor is a two-sided marketplace. Farms list produce; buyers place orders. Both sides have their own org-scoped role catalog. Orders run through one lifecycle (AWAITING_PAYMENT → PENDING → ACCEPTED → READY_FOR_PICKUP → IN_TRANSIT → DELIVERED, plus CANCELLED) with two-sided audits. The flow is drawn end to end, with the rebuild under deliberation, in [The order → delivery flow](order-delivery-flow.md) — and in plain language for Operations in [From farm gate to front door](order-delivery-flow-for-operations.md).
 
-## Open questions
+## Decided, mostly unbuilt
 
 - [**Who owns a farm, and what suspending someone should mean**](farm-ownership-and-suspension.md) —
   a farm's owner can be suspended and nothing happens to the farm, and ownership cannot be handed to
-  anyone else. Found 17 September 2026; undecided.
+  anyone else. Six questions, answered 17 September 2026: suspension stops new orders (built), an
+  admin chooses whether the farm goes with its owner, and ownership becomes transferable.
 
 ## Planned pages
 
