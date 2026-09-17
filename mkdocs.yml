@@ -149,6 +149,7 @@ nav:
       - Team flow v2 (gap analysis): domain/order-delivery-flow-v2-gap-analysis.md
       - Working answers (closing the gaps): domain/order-delivery-flow-v2-working-answers.md
       - The order availability check (proposal): domain/order-availability-check.md
+      - Who owns a farm, and what suspending someone should mean: domain/farm-ownership-and-suspension.md
   - Payments:
       - Overview: payments/index.md
       - Money, pricing, tax & commission: payments/money-model.md
