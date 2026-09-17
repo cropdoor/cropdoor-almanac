@@ -145,7 +145,7 @@ sequenceDiagram
     CD->>DB: the order AND one outbox row, one transaction
     DB-->>CD: committed
     CD-->>B: 201 — the buyer is done
-    Note over W: a few seconds later, on its own clock
+    Note over W: about a second later, on its own clock
     W->>DB: claim a batch of outbox rows
     W->>W: who is told, which message, rendered per channel
     W->>DB: the farmer's feed row
@@ -164,9 +164,11 @@ sequenceDiagram
 
 ### The two consequences accepted with it
 
-1. **The feed row appears a few seconds after the event, not at the instant of commit.** A buyer
-   refreshing immediately may see "accepted" on the next refresh rather than this one. In exchange,
-   nothing is ever lost.
+1. **The feed row appears about a second after the event, not at the instant of commit.** The
+   dispatcher polls every second — the median for a polled outbox (Oban, River, Solid Queue) — and
+   writes the feed row first, so a buyer refreshing the instant they order may see "accepted" on the
+   next refresh rather than this one. Email and text follow a second or two later, gated by the
+   providers. In exchange, nothing is ever lost.
 2. **Delivery is at-least-once.** If the application dies in the moment between the SMS provider
    accepting a text and us marking it sent, that text goes twice after restart. Email will not, because
    Resend deduplicates on our key. Rare, and honest — Stripe's whole model rests on the same admission.
