@@ -186,6 +186,13 @@ twenty-two switches nobody reads.
 what stops is the interruption, never the record. That is what the in-app feed being written first
 buys us.
 
+**Order texts arrive switched on — confirmed 18 September.** The code had them off, on the reasoning
+that a text costs money and should be opted into; this table and the design both said on. Found while
+building the channel table, and decided by the CTO: **on**, because a text nobody receives is a setting
+pretending to be a message. The cost is now explicit — every buyer is texted when their order is
+collected, and, as steps 4 to 6 arrive, when a collection or a delivery fails. Anyone who does not want
+them switches them off and still sees everything in the app.
+
 **One message cannot be switched off: the handoff code.** It is a credential, not an update. A buyer
 who had switched off order texts would arrive at their own door without the thing that opens it — and
 the agent's fallback is to resend that same text. It travels with the login code, outside the
