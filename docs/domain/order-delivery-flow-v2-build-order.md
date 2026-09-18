@@ -61,7 +61,7 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 2 · Telling people | X2b | the outbox — recorded with the thing that caused it, then sent by a dispatcher that can retry | **Done** | #242 |
 | 2 · Telling people | X3 | who can be told — staff as recipients, the work switch, one owner told per org | **Done** | #245 |
 | 2 · Telling people | Y1 | each message picks its own channels, and an order text arrives switched on | **Done** | #248 |
-| 2 · Telling people | Y2 | the four new messages whose trigger already exists, and the money switch | In review | #256 |
+| 2 · Telling people | Y2 | the four new messages whose trigger already exists, and the money switch | **Done** | #256 |
 | 3 · Money rails | G | refunds of a stated amount, with the credit-note line | Not started | — |
 | 3 · Money rails | H | the payout run reads the ledger and skips a disputed order | Not started | — |
 | 3 · Money rails | I | refund a cash buyer by mobile money | Not started | — |
