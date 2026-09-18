@@ -112,7 +112,7 @@ sequenceDiagram
 | The farm answers it | What the farm said | yes | yes | — |
 | The dispute is resolved | The outcome, and any refund with it | yes | yes | — |
 
-**Farmer — nine messages**
+**Farmer — eleven messages**
 
 | When | What they hear | In-app | Email | Text |
 | --- | --- | --- | --- | --- |
@@ -120,11 +120,13 @@ sequenceDiagram
 | A check is scheduled | A field agent is coming | yes | — | — |
 | The check is done | What the agent found | yes | yes | — |
 | Ops assign a crew | A crew is coming, and when | yes | — | — |
+| The crew is stood down, or the order is cancelled while crewed | No crew is coming for now | yes | — | — |
 | The crew could not collect | It failed, and why | yes | yes | — |
 | A delivery comes back | Your produce is on its way back | yes | yes | — |
 | The order is cancelled | It was cancelled, by whom, and why | yes | yes | — |
 | A buyer disputes the order | A complaint was raised, what it says, and the answer they owe | yes | yes | — |
 | The payout runs | You have been paid | yes | yes | — |
+| A payment is returned to us | The payment for this order came back, and we are looking into it | yes | yes | — |
 
 **Staff — their own work, in the same feed**
 
@@ -132,6 +134,7 @@ sequenceDiagram
 | --- | --- | --- | --- | --- | --- |
 | Field agent | An order needs a check | This order is waiting for you | yes | — | — |
 | Delivery agent | A crew is assigned | You have a collection today | yes | — | — |
+| Delivery agent | The collection is called off, or moved to someone else | This collection has left your list | yes | — | — |
 
 **Admin and Ops work watch lists, with one exception.** The lists on
 [the flow](order-delivery-flow-v2.md) are a queue they work through, and a notification for every
@@ -155,6 +158,33 @@ message either way.
 **The driver gets nothing — for now.** A driver taps nothing today and none of them has an account,
 so the delivery agent riding with them is the one we tell. This is "not yet" rather than "never": the
 door is left open deliberately, in case drivers are given the app later.
+
+## Three answers, 18 September
+
+Y2 put a message on four moments that previously had none, and in doing so made three silences
+visible. None was caused by that work — each was a moment nobody was told about, so nothing looked
+wrong. Answered by the CTO on 18 September.
+
+**A payout that comes back is told to the farmer.** A transfer can be reversed hours after it
+succeeded — a wrong account, a closed wallet, a recall. Until now the farmer kept an email saying
+they had been paid while the money sat back with us. They are now told the payment came back and
+that we are looking into it. If it is retried and succeeds, the existing "you have been paid" reads
+correctly after that notice.
+
+*The deeper half of this is not a message.* A reversal today writes no correcting ledger entry, so
+the books still show the farmer paid. That is a money-rails question, not a notification one, and it
+belongs with the refund and payout-run work rather than here.
+
+**A crew that is stood down is told to both the farm and the agent.** Un-assigning a crew, or
+cancelling an order that still has one, previously told nobody: the farm kept a message naming the
+day a van was coming, and the delivery agent could still drive to the farm. The agent's message is
+the one that prevents a wasted journey; the farm's is what stops produce sitting out waiting. Both
+are in the app alone — neither is worth an interruption.
+
+**A crew change re-tells the farm only when the day changes.** Ops may change a crew while an order
+is ready, and each change repeated the same "a crew is coming on the 20th" to the farm. The farm now
+hears again only if the date actually moved, and the agent who lost the collection hears that it has
+left their list — the same message as the one above.
 
 ## The five texts, and why only those
 
