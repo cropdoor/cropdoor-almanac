@@ -83,6 +83,24 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 
 Seventeen of thirty-six are merged: **steps 0 and 1 are complete**, and step 2 is three PRs in. **#232 and #243 are not among them:** #232 corrected a Javadoc about the buyer's cancellation window, found while building step 0, and #243 lowered how many messages the dispatcher sends at once, decided while reading X2b's live run.
 
+## Work that is not in this order
+
+The table above tracks the thirty-six PRs that build the flow. A second thread ran alongside it in September: the documents the platform issues, and the brand they carry. It is recorded here because it shipped and nothing else says so — not because it belongs to a step.
+
+| | What it did | Status | PR |
+|---|---|---|---|
+| Receipts | the delivery fee the buyer paid, on the document that explains it | **Done** | #258 |
+| Orders | an order carries a delivery fee, always | **Done** | #260 |
+| Documents | the key write at issue was never committing, so every document was drawn twice | **Done** | #261 |
+| Documents | the download renders without holding a database connection | **Done** | #262 |
+| Documents | one way to draw a document — receipts and credit notes stop being two copies | **Done** | #263 |
+| Documents | the logo a document already has, instead of fetching it on every render | **Done** | #264 |
+| Emails | the brand URL emails read, so the logo can move with one setting | **Done** | #265 |
+
+Two of these were not planned. #261 and #262 were found by writing the design down before the code: the first meant every receipt was rendered twice and neither copy was recorded, the second held a database connection open through a rasterise and an upload. Neither was visible from the outside.
+
+The brand logo now lives in CropDoor's own bucket rather than a personal Cloudinary account. Two pieces remain: the marketing pages use a different account, and one email still borrows an icon from a free CDN.
+
 ## What changed since 10 September
 
 This page is the living order of work, so it is corrected as the CTO decides and as the work lands. Eight corrections so far: four to step 0, two to step 1, and two to step 2.
