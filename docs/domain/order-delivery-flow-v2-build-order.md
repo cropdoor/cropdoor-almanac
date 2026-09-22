@@ -64,7 +64,7 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 2 · Telling people | Y2 | the four new messages whose trigger already exists, and the money switch | **Done** | #256 |
 | 2 · Telling people | Y3 | the three silences Y2 made visible, and the crew change that spoke twice | **Done** | #257 |
 | 3 · Money rails | G | refunds of a stated amount, with the credit-note line | Not started | — |
-| 3 · Money rails | T1 | the agent's collected cash recorded as received, so a cash order can be paid at all | In review | #277 |
+| 3 · Money rails | T1 | the agent's collected cash recorded as received, so a cash order can be paid at all | **Done** | #277 |
 | 3 · Money rails | H | the payout run reads the ledger and skips a disputed order | **Done** | #276 |
 | 3 · Money rails | I | refund a cash buyer by mobile money | Not started | — |
 | 4 · The farm | J | the availability check — the form, the photos, the outcomes, the overdue list | Not started | — |
@@ -82,7 +82,7 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 7 · After delivery | V | two ratings | Not started | — |
 | 7 · After delivery | W | the API document rewritten; the old flow pages retired | Not started | — |
 
-Eighteen of thirty-seven are merged: **steps 0 and 1 are complete**, step 2 is three PRs in, and step 3 has its first — H, the payout reading the ledger. **#232 and #243 are not among them:** #232 corrected a Javadoc about the buyer's cancellation window, found while building step 0, and #243 lowered how many messages the dispatcher sends at once, decided while reading X2b's live run.
+Nineteen of thirty-seven are merged: **steps 0 and 1 are complete**, step 2 is three PRs in, and step 3 has two — H, the payout reading the ledger, and T1, the cash an agent is holding, which is what made a cash order payable at all. **#232 and #243 are not among them:** #232 corrected a Javadoc about the buyer's cancellation window, found while building step 0, and #243 lowered how many messages the dispatcher sends at once, decided while reading X2b's live run.
 
 ## Work that is not in this order
 
