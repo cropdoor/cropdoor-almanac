@@ -63,7 +63,7 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 2 · Telling people | Y1 | each message picks its own channels, and an order text arrives switched on | **Done** | #248 |
 | 2 · Telling people | Y2 | the four new messages whose trigger already exists, and the money switch | **Done** | #256 |
 | 2 · Telling people | Y3 | the three silences Y2 made visible, and the crew change that spoke twice | **Done** | #257 |
-| 2 · Telling people | Y4 | the refund nobody mentions — the buyer hears that a refund started, and that it was sent | In review | #282 |
+| 2 · Telling people | Y4 | the refund nobody mentions — the buyer hears that a refund started, and that it was sent | **Done** | #282 |
 | 3 · Money rails | G1 | a refund carries its own name at the gateway, so two on one payment can be told apart | **Done** | #281 |
 | 3 · Money rails | G2 | refunds of a stated amount, and who bears them | Not started | — |
 | 3 · Money rails | G3 | one credit note per refund, and the penalty line | Not started | — |
