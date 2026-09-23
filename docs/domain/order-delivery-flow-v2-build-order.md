@@ -63,7 +63,9 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 2 · Telling people | Y1 | each message picks its own channels, and an order text arrives switched on | **Done** | #248 |
 | 2 · Telling people | Y2 | the four new messages whose trigger already exists, and the money switch | **Done** | #256 |
 | 2 · Telling people | Y3 | the three silences Y2 made visible, and the crew change that spoke twice | **Done** | #257 |
-| 3 · Money rails | G | refunds of a stated amount, with the credit-note line | Not started | — |
+| 3 · Money rails | G1 | a refund carries its own name at the gateway, so two on one payment can be told apart | In review | #281 |
+| 3 · Money rails | G2 | refunds of a stated amount, and who bears them | Not started | — |
+| 3 · Money rails | G3 | one credit note per refund, and the penalty line | Not started | — |
 | 3 · Money rails | T1 | the agent's collected cash recorded as received, so a cash order can be paid at all | **Done** | #277 |
 | 3 · Money rails | H | the payout run reads the ledger and skips a disputed order | **Done** | #276 |
 | 3 · Money rails | I | refund a cash buyer by mobile money | Not started | — |
@@ -111,6 +113,17 @@ This page is the living order of work, so it is corrected as the CTO decides and
 - **A trip called off before the van went reads Cancelled.** Decided by the CTO on 13 September, with two smaller answers alongside it: a finished trip that gets a new order reads In progress, and a trip's start and finish times are worked out from its orders rather than removed. All three are questions 44 to 46 on the [working-answers page](order-delivery-flow-v2-working-answers.md). They settle what C3 builds; they do not move it in the order.
 - **D became two PRs.** The day-before reminder and the packing step shared nothing, so they shipped separately (#230, #231) rather than as one change carrying a farmer-visible button removal alongside a dormant job.
 - **Step 2 is five PRs, and thirty-six in all.** Decided by the CTO on 15 September, after looking at how a message is actually sent today. It is published inside the app and delivered on a background thread — so if the app restarts between the order being saved and the message going out, which a deploy does routinely, **the message is lost and nothing records that it ever existed**. Separately, that background worker is unbounded while the database allows twenty connections at once, so a burst of messages can exhaust them and the ones that lose are dropped silently. **X2b** answers both: a message is written down in the same breath as the thing that caused it, and a dispatcher sends it afterwards. A restart loses nothing, a failed send can be tried again, and how many go at once is finally bounded. It is **less** machinery than what exists today, not more — it removes the background hop and the coupling that lets one channel's failure stop another — and it needs no new infrastructure, because the database we already have is the queue.
+
+- **G splits three ways.** Decided 22 September, on a second review of G's own design. G was one PR
+  containing a gateway contract change, a ledger arithmetic change, a new feature, a document rework
+  with a data migration, and two event listeners — each independently verifiable, which is the test
+  this build order applies everywhere else. **G1** gives a refund its own identity at the gateway and
+  changes no money behaviour: today every refund on a payment shares the charge's reference, so with
+  two the platform cannot say which one a webhook settles. **G2** is the money — the stated amount,
+  who bears it, and the credit note's amount, which travels with G2 rather than G3 because G2 alone
+  would print "Refunded in full" on a partial refund. **G3** is what a *second* refund needs: one
+  note per refund instead of one per order, and the penalty line. The cut also keeps the step's
+  acceptance test — "the ledger and credit note agree" — inside the PR that would otherwise break it.
 
 - **T splits, and the half that matters for money comes forward into step 3.** Decided by the CTO on 21 September, on evidence from H's live run. Settling a cash order writes that the platform float paid out, but the notes are in the delivery agent's bag — so the books say we hold cash we have not received, and the payout was sending real money against it. H refuses that outright, which is safer and leaves a farm selling for cash unable to be paid at all: on the development database one farm is owed 335.70, of which 254.70 is nineteen delivered cash orders with no route to payment. Waiting for step 6 would leave those farms unpaid for twenty PRs. So **T1** — the agent's collected cash recorded as received, and posted where it belongs — lands right after G, and **T2** keeps the agent-facing half at the door: the "cash received" text and the daily remittance round.
 
