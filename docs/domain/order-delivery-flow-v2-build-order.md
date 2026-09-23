@@ -68,7 +68,7 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 3 · Money rails | G3 | one credit note per refund, and the penalty line | Not started | — |
 | 3 · Money rails | T1 | the agent's collected cash recorded as received, so a cash order can be paid at all | **Done** | #277 |
 | 3 · Money rails | H | the payout run reads the ledger and skips a disputed order | **Done** | #276 |
-| 3 · Money rails | I | refund a cash buyer by mobile money | Not started | — |
+| 3 · Money rails | I | refund a cash buyer by mobile money — and collect the buyer payout destination nothing else collects | Not started | — |
 | 4 · The farm | J | the availability check — the form, the photos, the outcomes, the overdue list | Not started | — |
 | 4 · The farm | K | READY and the crew gate, with the acceptance and READY deadlines | Not started | — |
 | 4 · The farm | L | the cancellation windows, the penalty, and strikes | Not started | — |
@@ -113,6 +113,17 @@ This page is the living order of work, so it is corrected as the CTO decides and
 - **A trip called off before the van went reads Cancelled.** Decided by the CTO on 13 September, with two smaller answers alongside it: a finished trip that gets a new order reads In progress, and a trip's start and finish times are worked out from its orders rather than removed. All three are questions 44 to 46 on the [working-answers page](order-delivery-flow-v2-working-answers.md). They settle what C3 builds; they do not move it in the order.
 - **D became two PRs.** The day-before reminder and the packing step shared nothing, so they shipped separately (#230, #231) rather than as one change carrying a farmer-visible button removal alongside a dormant job.
 - **Step 2 is five PRs, and thirty-six in all.** Decided by the CTO on 15 September, after looking at how a message is actually sent today. It is published inside the app and delivered on a background thread — so if the app restarts between the order being saved and the message going out, which a deploy does routinely, **the message is lost and nothing records that it ever existed**. Separately, that background worker is unbounded while the database allows twenty connections at once, so a burst of messages can exhaust them and the ones that lose are dropped silently. **X2b** answers both: a message is written down in the same breath as the thing that caused it, and a dispatcher sends it afterwards. A restart loses nothing, a failed send can be tried again, and how many go at once is finally bounded. It is **less** machinery than what exists today, not more — it removes the background hop and the coupling that lets one channel's failure stop another — and it needs no new infrastructure, because the database we already have is the queue.
+
+- **I turns out to be the only place a buyer can be paid, and it is bigger than cash refunds.**
+  Found 23 September while specifying the refund notifications. We hold everything needed to pay a
+  farm — mobile-money number, network, bank code, account number, account name, and a screen that
+  asks for them. For a buyer we hold a verified phone number and nothing else: no network, no bank
+  details, and no screen that asks. Two consequences. A cash refund cannot be paid at all, which is
+  what I was always for. And an **online** refund that the provider cannot complete — it asks us for
+  a destination — cannot be rescued either, by anyone, however quickly they hear about it. So I is
+  not only "refund a cash buyer"; it is the buyer payout destination, and until it lands a stuck
+  online refund has no route home. Online refunds do normally complete — a live mobile-money refund
+  settled on 23 September — so this is a gap in the failure path, not the common one.
 
 - **G splits three ways.** Decided 22 September, on a second review of G's own design. G was one PR
   containing a gateway contract change, a ledger arithmetic change, a new feature, a document rework
