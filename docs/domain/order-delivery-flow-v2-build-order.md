@@ -84,7 +84,7 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 7 · After delivery | V | two ratings | Not started | — |
 | 7 · After delivery | W | the API document rewritten; the old flow pages retired | Not started | — |
 
-Nineteen of thirty-seven are merged: **steps 0 and 1 are complete**, step 2 is three PRs in, and step 3 has two — H, the payout reading the ledger, and T1, the cash an agent is holding, which is what made a cash order payable at all. **#232 and #243 are not among them:** #232 corrected a Javadoc about the buyer's cancellation window, found while building step 0, and #243 lowered how many messages the dispatcher sends at once, decided while reading X2b's live run.
+Nineteen of thirty-nine are merged: **steps 0 and 1 are complete**, step 2 is three PRs in, and step 3 has two — H, the payout reading the ledger, and T1, the cash an agent is holding, which is what made a cash order payable at all. **#232 and #243 are not among them:** #232 corrected a Javadoc about the buyer's cancellation window, found while building step 0, and #243 lowered how many messages the dispatcher sends at once, decided while reading X2b's live run.
 
 ## Work that is not in this order
 
