@@ -63,7 +63,8 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 2 · Telling people | Y1 | each message picks its own channels, and an order text arrives switched on | **Done** | #248 |
 | 2 · Telling people | Y2 | the four new messages whose trigger already exists, and the money switch | **Done** | #256 |
 | 2 · Telling people | Y3 | the three silences Y2 made visible, and the crew change that spoke twice | **Done** | #257 |
-| 3 · Money rails | G1 | a refund carries its own name at the gateway, so two on one payment can be told apart | In review | #281 |
+| 2 · Telling people | Y4 | the refund nobody mentions — the buyer hears that a refund started, and that it was sent | In review | #282 |
+| 3 · Money rails | G1 | a refund carries its own name at the gateway, so two on one payment can be told apart | **Done** | #281 |
 | 3 · Money rails | G2 | refunds of a stated amount, and who bears them | Not started | — |
 | 3 · Money rails | G3 | one credit note per refund, and the penalty line | Not started | — |
 | 3 · Money rails | T1 | the agent's collected cash recorded as received, so a cash order can be paid at all | **Done** | #277 |
@@ -120,10 +121,13 @@ This page is the living order of work, so it is corrected as the CTO decides and
   asks for them. For a buyer we hold a verified phone number and nothing else: no network, no bank
   details, and no screen that asks. Two consequences. A cash refund cannot be paid at all, which is
   what I was always for. And an **online** refund that the provider cannot complete — it asks us for
-  a destination — cannot be rescued either, by anyone, however quickly they hear about it. So I is
-  not only "refund a cash buyer"; it is the buyer payout destination, and until it lands a stuck
-  online refund has no route home. Online refunds do normally complete — a live mobile-money refund
-  settled on 23 September — so this is a gap in the failure path, not the common one.
+  a destination — cannot be finished **by our own code**, because the retry call needs a destination
+  we have never stored. *Corrected 23 September:* the first draft of this note said such a refund
+  "cannot be rescued by anyone", which is wrong. A person can complete it on the provider's
+  dashboard, where the money may go to any account belonging to the customer, and the admin queue
+  that surfaces it already exists. So I is still the buyer payout destination — and still what makes
+  a cash refund possible at all — but a stuck online refund has a manual route home today. Online
+  refunds do normally complete: a live mobile-money refund settled on 23 September.
 
 - **G splits three ways.** Decided 22 September, on a second review of G's own design. G was one PR
   containing a gateway contract change, a ledger arithmetic change, a new feature, a document rework

@@ -1,10 +1,12 @@
 # Who we tell, and when
 
-*The twenty-four messages the [decided flow](order-delivery-flow-v2.md) promises — thirteen to
-buyers, nine to farmers, two to staff — drawn against the moment each one is sent. Settled
+*The twenty-nine messages the [decided flow](order-delivery-flow-v2.md) promises — fifteen to
+buyers, eleven to farmers, three to staff — drawn against the moment each one is sent. Settled
 13 September; on 15 September four messages the platform already sends were written onto the list,
-and what a person may switch off was decided. The count read "eighteen" until then, which added up
-buyers and farmers and quietly left the two messages to staff out of its own total. This page is the frame step 2 of
+and what a person may switch off was decided. On 23 September the buyer's two refund messages were
+added. The headline count has twice disagreed with the tables below it — it read "eighteen", then
+"twenty-four", while the tables held more; the tables are the list, and the headline is now counted
+from them. This page is the frame step 2 of
 [the order of work](order-delivery-flow-v2-build-order.md) builds; every later step hangs its
 messages on it rather than inventing its own.*
 
@@ -94,7 +96,7 @@ sequenceDiagram
 
 ## Every message, and how it travels
 
-**Buyer — thirteen messages**
+**Buyer — fifteen messages**
 
 | When | What they hear | In-app | Email | Text |
 | --- | --- | --- | --- | --- |
@@ -111,6 +113,8 @@ sequenceDiagram
 | They raise a dispute | We have your complaint | yes | yes | — |
 | The farm answers it | What the farm said | yes | yes | — |
 | The dispute is resolved | The outcome, and any refund with it | yes | yes | — |
+| The provider accepts a refund | Your refund has started, and we will say when it is sent | yes | yes | — |
+| The refund is sent | It is on its way back, in 3 to 10 working days, with the credit note on the order | yes | yes | — |
 
 **Farmer — eleven messages**
 
@@ -188,7 +192,7 @@ left their list — the same message as the one above.
 
 ## The five texts, and why only those
 
-A text costs money every time it is sent, and a single buyer could receive thirteen messages on one
+A text costs money every time it is sent, and a single buyer could receive fifteen messages on one
 order. These five are the ones where someone has to do something, now:
 
 - **the handoff code**, because they need it at the door and may not have the app open — and at the
@@ -203,7 +207,7 @@ Everything else is in the app, with email where there is detail or a document to
 
 **Four kinds of message, and a person switches off a kind, not a message.** Fewer kinds and
 switching off "delivered" would also stop "we could not deliver"; one switch a message would be
-twenty-two switches nobody reads.
+twenty-nine switches nobody reads.
 
 | Kind | Who sees it | In-app | Email | Text |
 | --- | --- | --- | --- | --- |
