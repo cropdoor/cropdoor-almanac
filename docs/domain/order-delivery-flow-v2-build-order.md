@@ -85,7 +85,7 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 7 · After delivery | V | two ratings | Not started | — |
 | 7 · After delivery | W | the API document rewritten; the old flow pages retired | Not started | — |
 
-Twenty-five of forty-one are merged: **steps 0, 1 and 2 are complete**, and step 3 has three — G1, a refund's own name at the gateway; H, the payout reading the ledger; and T1, the cash an agent is holding, which is what made a cash order payable at all. G3 is folded into G2, so step 3 has G2 and I to go. Before G2, one more PR closes a refund that can otherwise stay stuck forever. **#232 and #243 are not among them:** #232 corrected a Javadoc about the buyer's cancellation window, found while building step 0, and #243 lowered how many messages the dispatcher sends at once, decided while reading X2b's live run.
+Twenty-five of forty-one are merged: **steps 0, 1 and 2 are complete**, and step 3 has three — G1, a refund's own name at the gateway; H, the payout reading the ledger; and T1, the cash an agent is holding, which is what made a cash order payable at all. G3 is folded into G2, so step 3 has G2 and I to go. The refund that could stay stuck forever is now closable (#297), so G2 is next. **#232 and #243 are not among them:** #232 corrected a Javadoc about the buyer's cancellation window, found while building step 0, and #243 lowered how many messages the dispatcher sends at once, decided while reading X2b's live run.
 
 ## Work that is not in this order
 
@@ -120,7 +120,7 @@ Found while building step 3's refunds and while testing against the real payment
 | Checkout | every checkout attempt records how it ended — which one took the money, and why the others did not count | **Done** | #293 |
 | Webhooks | a failure message the provider never sends is no longer handled, and a failure can only fail a payment still open | **Done** | #294 |
 | Webhooks | provider messages are accepted only from the provider's published addresses | **Done** | #295 |
-| Refunds | a refund the provider refuses fails at once, and Admin-Ops can close a stuck one only on the provider's own evidence that it holds nothing | In review | #297 |
+| Refunds | a refund the provider refuses fails at once, and Admin-Ops can close a stuck one only on the provider's own evidence that it holds nothing | **Done** | #297 |
 | Engineering | the rules the code enforces by script, not by test, and a note on reading a locked order | **Done** | #287, #288, #296 |
 
 Two findings are worth carrying forward. The provider sends no "charge failed" message at all — a failed card simply leaves the transaction unpaid, and the platform notices by asking. And a payment attempt now says why it did not count, which is what a refund-by-hand needs: the attempt itself names the charge to give back.
