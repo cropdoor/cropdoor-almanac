@@ -65,8 +65,8 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 2 · Telling people | Y3 | the three silences Y2 made visible, and the crew change that spoke twice | **Done** | #257 |
 | 2 · Telling people | Y4 | the refund nobody mentions — the buyer hears that a refund started, and that it was sent | **Done** | #282 |
 | 3 · Money rails | G1 | a refund carries its own name at the gateway, so two on one payment can be told apart | **Done** | #281 |
-| 3 · Money rails | G2 | refunds of a stated amount, and who bears them | Not started | — |
-| 3 · Money rails | G3 | one credit note per refund, and the penalty line | Not started | — |
+| 3 · Money rails | G2 | refunds of a stated amount, and who bears them — and one credit note per refund | Not started | — |
+| 3 · Money rails | G3 | ~~one credit note per refund, and the penalty line~~ — folded into G2; the penalty line moves to L | Folded | 23 Sep |
 | 3 · Money rails | T1 | the agent's collected cash recorded as received, so a cash order can be paid at all | **Done** | #277 |
 | 3 · Money rails | H | the payout run reads the ledger and skips a disputed order | **Done** | #276 |
 | 3 · Money rails | I | refund a cash buyer by mobile money — and collect the buyer payout destination nothing else collects | Not started | — |
@@ -85,7 +85,7 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 7 · After delivery | V | two ratings | Not started | — |
 | 7 · After delivery | W | the API document rewritten; the old flow pages retired | Not started | — |
 
-Twenty-five of forty-two are merged: **steps 0, 1 and 2 are complete**, and step 3 has three — G1, a refund's own name at the gateway; H, the payout reading the ledger; and T1, the cash an agent is holding, which is what made a cash order payable at all. Step 3 still has G2, G3 and I to go, and G2 is next. **#232 and #243 are not among them:** #232 corrected a Javadoc about the buyer's cancellation window, found while building step 0, and #243 lowered how many messages the dispatcher sends at once, decided while reading X2b's live run.
+Twenty-five of forty-one are merged: **steps 0, 1 and 2 are complete**, and step 3 has three — G1, a refund's own name at the gateway; H, the payout reading the ledger; and T1, the cash an agent is holding, which is what made a cash order payable at all. G3 is folded into G2, so step 3 has G2 and I to go. Before G2, one more PR closes a refund that can otherwise stay stuck forever. **#232 and #243 are not among them:** #232 corrected a Javadoc about the buyer's cancellation window, found while building step 0, and #243 lowered how many messages the dispatcher sends at once, decided while reading X2b's live run.
 
 ## Work that is not in this order
 
@@ -147,6 +147,17 @@ This page is the living order of work, so it is corrected as the CTO decides and
   that surfaces it already exists. So I is still the buyer payout destination — and still what makes
   a cash refund possible at all — but a stuck online refund has a manual route home today. Online
   refunds do normally complete: a live mobile-money refund settled on 23 September.
+
+- **G3 folds into G2, and a stuck refund is fixed before either.** Decided by the CTO on 23
+  September, on a line-by-line audit of G2's design. G2 is what makes a second refund on one order
+  possible, and the buyer's refund message already promises "the credit note for this refund is on
+  your order" — untrue for a second refund while an order has one note. So one note per refund
+  travels with G2, and G3's other half, the penalty line, goes to L, where the penalty itself is
+  decided. Refunds stay one at a time per payment: a second waits until the first has finished, and
+  the cap counts the finished ones. No refund is ever started automatically — Admin-Ops always starts
+  it. And a refund the provider never acknowledged, which today can sit open forever and block every
+  later refund on that payment, gets a way to close first, as its own PR, because G2 makes that case
+  routine.
 
 - **G splits three ways.** Decided 22 September, on a second review of G's own design. G was one PR
   containing a gateway contract change, a ledger arithmetic change, a new feature, a document rework
