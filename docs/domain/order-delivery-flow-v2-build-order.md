@@ -85,11 +85,11 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 7 · After delivery | V | two ratings | Not started | — |
 | 7 · After delivery | W | the API document rewritten; the old flow pages retired | Not started | — |
 
-Nineteen of thirty-nine are merged: **steps 0 and 1 are complete**, step 2 is three PRs in, and step 3 has two — H, the payout reading the ledger, and T1, the cash an agent is holding, which is what made a cash order payable at all. **#232 and #243 are not among them:** #232 corrected a Javadoc about the buyer's cancellation window, found while building step 0, and #243 lowered how many messages the dispatcher sends at once, decided while reading X2b's live run.
+Twenty-five of forty-two are merged: **steps 0, 1 and 2 are complete**, and step 3 has three — G1, a refund's own name at the gateway; H, the payout reading the ledger; and T1, the cash an agent is holding, which is what made a cash order payable at all. Step 3 still has G2, G3 and I to go, and G2 is next. **#232 and #243 are not among them:** #232 corrected a Javadoc about the buyer's cancellation window, found while building step 0, and #243 lowered how many messages the dispatcher sends at once, decided while reading X2b's live run.
 
 ## Work that is not in this order
 
-The table above tracks the thirty-seven PRs that build the flow. A second thread ran alongside it in September: the documents the platform issues, and the brand they carry. It is recorded here because it shipped and nothing else says so — not because it belongs to a step.
+The table above tracks the PRs that build the flow. Two other threads ran alongside it in September: the documents the platform issues and the brand they carry, and the hardening of the payment rails. It is recorded here because it shipped and nothing else says so — not because it belongs to a step.
 
 | | What it did | Status | PR |
 |---|---|---|---|
@@ -104,6 +104,25 @@ The table above tracks the thirty-seven PRs that build the flow. A second thread
 Two of these were not planned. #261 and #262 were found by writing the design down before the code: the first meant every receipt was rendered twice and neither copy was recorded, the second held a database connection open through a rasterise and an upload. Neither was visible from the outside.
 
 The brand logo now lives in CropDoor's own bucket rather than a personal Cloudinary account. Two pieces remain: the marketing pages use a different account, and one email still borrows an icon from a free CDN.
+
+### Payments hardening, 23–25 September
+
+Found while building step 3's refunds and while testing against the real payment provider. None of it is a step in the order above; each is a way money could be lost, booked twice, or left unexplained, closed before more of step 3 builds on it.
+
+| | What it did | Status | PR |
+|---|---|---|---|
+| Refunds | a refund that fails leaves the payment untouched, instead of marking a paid order refunded | **Done** | #285 |
+| Refunds | a refund and a chargeback on the same payment are each posted once, never both | **Done** | #286 |
+| Refunds | a refund is recognised by its own id or its own tag, never by elimination | **Done** | #289 |
+| Checkout | the payment provider being slow is treated as the provider being unavailable, not as a server error | **Done** | #290 |
+| Checkout | a checkout whose reply was lost can be retried, and a buyer is never handed a link that cannot be booked | **Done** | #291 |
+| Checkout | a buyer who paid on an older checkout link has the order booked, and a second payment for a paid order is flagged for a refund | **Done** | #292 |
+| Checkout | every checkout attempt records how it ended — which one took the money, and why the others did not count | **Done** | #293 |
+| Webhooks | a failure message the provider never sends is no longer handled, and a failure can only fail a payment still open | **Done** | #294 |
+| Webhooks | provider messages are accepted only from the provider's published addresses | **Done** | #295 |
+| Engineering | the rules the code enforces by script, not by test, and a note on reading a locked order | **Done** | #287, #288, #296 |
+
+Two findings are worth carrying forward. The provider sends no "charge failed" message at all — a failed card simply leaves the transaction unpaid, and the platform notices by asking. And a payment attempt now says why it did not count, which is what a refund-by-hand needs: the attempt itself names the charge to give back.
 
 ## What changed since 10 September
 
