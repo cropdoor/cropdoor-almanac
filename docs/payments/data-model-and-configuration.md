@@ -408,6 +408,7 @@ Payment configuration is split across **five** `@ConfigurationProperties` binder
 | `cropdoor.payments.gateways.paystack.secret-key` | _(blank)_ | `PAYSTACK_SECRET_KEY` | API auth **and** webhook HMAC fallback |
 | `cropdoor.payments.gateways.paystack.public-key` | _(blank)_ | `PAYSTACK_PUBLIC_KEY` | client-side init key |
 | `cropdoor.payments.gateways.paystack.webhook-signing-secret` | _(blank → secret-key)_ | `PAYSTACK_WEBHOOK_SECRET` | optional HMAC override |
+| `cropdoor.payments.gateways.paystack.webhook-allowed-ips` | _(empty: check off)_; deployed: Paystack's three addresses | `PAYSTACK_WEBHOOK_ALLOWED_IPS` | the only source addresses a webhook is accepted from; empty turns the check off |
 | `cropdoor.payments.gateways.paystack.connect-timeout` | `5s` | — | TCP connect timeout |
 | `cropdoor.payments.gateways.paystack.read-timeout` | `15s` | — | socket read timeout (all calls, incl. verify) |
 

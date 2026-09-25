@@ -385,34 +385,37 @@ Webhooks are the **single front door** through which every *terminal* money outc
 
 The endpoint is a *thin authenticated ingress*. It performs no business logic: once authenticated it hands the parsed envelope to `PaystackEventDispatcher`, which publishes a normalized domain event; the owning service settles it `AFTER_COMMIT`. **`permitAll` + HMAC-as-auth** is necessary because Paystack cannot present a CropDoor bearer token; the route is excluded from the JWT filter chain and authenticity is proven cryptographically. **`@Hidden`** keeps the route out of Swagger so it stays invisible to scanners.
 
-### The five ordered gates
+### The six ordered gates
 
-`PaystackWebhookController#handle` runs five gates in a fixed order. Order matters: cheap structural checks run before the expensive HMAC, and the rate limit sits *before* the cryptographic work so a flood cannot exhaust CPU on HMAC computation.
+`PaystackWebhookController#handle` runs six gates in a fixed order. Order matters: cheap structural checks run before the expensive HMAC, a request from an address that is not Paystack's is refused before anything else looks at it, and the rate limit sits *before* the cryptographic work so a flood cannot exhaust CPU on HMAC computation.
 
 ```mermaid
 flowchart TD
     in[POST /v1/webhooks/paystack<br/>rawBody + x-paystack-signature] --> g1{Gate 1<br/>signature present?<br/>body non-empty?}
     g1 -- "missing/blank" --> r404a[404 NOT_FOUND]
-    g1 -- ok --> g2{Gate 2<br/>per-IP rate limit<br/>200 / 60s}
-    g2 -- "exceeded" --> r429[429 TOO_MANY_REQUESTS<br/>log.warn]
-    g2 -- ok --> g3{Gate 3<br/>raw-byte HMAC-SHA512<br/>matches?}
-    g3 -- "mismatch" --> r404b[404 NOT_FOUND]
-    g3 -- ok --> g4{Gate 4<br/>parse JSON envelope}
-    g4 -- "parse fails" --> r200a[200 OK<br/>log.warn, swallow]
-    g4 -- ok --> g5[Gate 5<br/>eventDispatcher.dispatch]
-    g5 -- "dispatch throws" --> r200b[200 OK<br/>log.error, reconciler recovers]
-    g5 -- ok --> r200c[200 OK]
+    g1 -- ok --> g2{Gate 2<br/>source is one of<br/>Paystack's addresses?}
+    g2 -- "other address" --> r404c[404 NOT_FOUND<br/>log.warn, counted]
+    g2 -- "yes, or check off" --> g3{Gate 3<br/>per-IP rate limit<br/>200 / 60s}
+    g3 -- "exceeded" --> r429[429 TOO_MANY_REQUESTS<br/>log.warn]
+    g3 -- ok --> g4{Gate 4<br/>raw-byte HMAC-SHA512<br/>matches?}
+    g4 -- "mismatch" --> r404b[404 NOT_FOUND]
+    g4 -- ok --> g5{Gate 5<br/>parse JSON envelope}
+    g5 -- "parse fails" --> r200a[200 OK<br/>log.warn, swallow]
+    g5 -- ok --> g6[Gate 6<br/>eventDispatcher.dispatch]
+    g6 -- "dispatch throws" --> r200b[200 OK<br/>log.error, reconciler recovers]
+    g6 -- ok --> r200c[200 OK]
 ```
 
 | # | Gate | Condition | Status | Rationale |
 | --- | --- | --- | --- | --- |
 | 1 | Structural presence | `rawBody` null/empty or `signature` null/blank | **404** | Nothing to verify; behave as if the route does not exist. |
-| 2 | Per-IP rate limit | `> 200` requests / `60s` for the source IP | **429** | Bound an unauthenticated flood *before* HMAC work. |
-| 3 | Signature | `PaystackSignatures#matches(...)` false | **404** | Failed authentication; same status as gate 1 — an attacker cannot distinguish "no such endpoint" from "wrong signature." |
-| 4 | Parse | `objectMapper.readValue(...)` throws | **200** | The request is *authenticated*; a shape we can't parse is logged and swallowed — non-200 would only trigger pointless retries. |
-| 5 | Dispatch | `eventDispatcher.dispatch(event)` throws | **200** | Authenticated and parsed; a downstream failure is logged and swallowed; the reconciler is the durable backstop. |
+| 2 | Source address | the source IP is not one of `webhook-allowed-ips` (Paystack's three published addresses, the same for test and live), when the list is set | **404** | Paystack sends webhooks only from those addresses. A second lock behind the signature: a leaked secret key alone cannot forge a webhook. The address is Cloudflare's `CF-Connecting-IP`, trusted because the firewall admits only Cloudflare, so this holds only while the firewall does. On in every deployed environment, off locally; setting the list empty turns it off without a release. Refusals are counted (`cropdoor.paystack.webhook.refused`), and any count is worth a look. |
+| 3 | Per-IP rate limit | `> 200` requests / `60s` for the source IP | **429** | Bound an unauthenticated flood *before* HMAC work. |
+| 4 | Signature | `PaystackSignatures#matches(...)` false | **404** | Failed authentication; same status as gates 1 and 2 — an attacker cannot distinguish "no such endpoint" from "wrong address" or "wrong signature." |
+| 5 | Parse | `objectMapper.readValue(...)` throws | **200** | The request is *authenticated*; a shape we can't parse is logged and swallowed — non-200 would only trigger pointless retries. |
+| 6 | Dispatch | `eventDispatcher.dispatch(event)` throws | **200** | Authenticated and parsed; a downstream failure is logged and swallowed; the reconciler is the durable backstop. |
 
-The pivotal line: gates 1–3 (pre-authentication) return `404`/`429` and refuse the work; gates 4–5 (post-authentication) *always* return `200` and swallow the failure. That boundary is the whole webhook contract.
+The pivotal line: gates 1–4 (pre-authentication) return `404`/`429` and refuse the work; gates 5–6 (post-authentication) *always* return `200` and swallow the failure. That boundary is the whole webhook contract.
 
 ### Signature verification deep-dive
 
