@@ -77,7 +77,7 @@ If the buyer reloads or retries within the validity window, CropDoor returns the
 Three independent triggers can confirm or fail a charge, and all three funnel through the **same** `findByProviderRefForUpdate` pessimistic lock (`SELECT … FOR UPDATE`) and the **same** `applyChargeOutcomeLocked` body:
 
 1. **Buyer verify** — the FE polls `POST /v1/buyer/payments/{reference}/verify`, which re-fetches the charge (`verifyCharge`) and settles under the lock.
-2. **Webhook** — Paystack delivers `charge.success` / `charge.failed`; the dispatcher normalizes it to a `ChargeSucceededEvent` / `ChargeFailedEvent`, and `PaymentServiceImpl` consumes it via `@TransactionalEventListener(phase = AFTER_COMMIT, fallbackExecution = true)`, re-acquiring the same lock.
+2. **Webhook** — Paystack delivers `charge.success` (it sends no failure webhook; there is no `charge.failed` event); the dispatcher normalizes it to a `ChargeSucceededEvent`, and `PaymentServiceImpl` consumes it via `@TransactionalEventListener(phase = AFTER_COMMIT, fallbackExecution = true)`, re-acquiring the same lock.
 3. **Reconciler** — `PaymentReconciler#verifyPendingCharges` delegates per charge to `verify`; `markAbandoned` delegates to `applyChargeFailure` with reason `"abandoned"` after `abandonAfter` (default `PT24H`).
 
 ```mermaid
@@ -144,7 +144,7 @@ A failed or abandoned charge marks the payment `FAILED` and restores reserved st
 stateDiagram-v2
     [*] --> PENDING : createPayment (checkout init)
     PENDING --> COMPLETED : settleConfirmedPayment (matched success)
-    PENDING --> FAILED : charge.failed / abandoned / amount_mismatch
+    PENDING --> FAILED : not found / abandoned / amount_mismatch
     COMPLETED --> REFUNDED : refund processed
     COMPLETED --> DISPUTED : charge.dispute.create (chargeback opened)
     DISPUTED --> COMPLETED : dispute won

@@ -482,7 +482,6 @@ The dispatcher's `switch` on `event.event()` is the complete routing surface. It
 | Paystack event name | Domain event | Listener (`Class#method`) | Service action | Ledger effect |
 | --- | --- | --- | --- | --- |
 | `charge.success` | `ChargeSucceededEvent` | `PaymentServiceImpl#onChargeSucceeded` | `applyChargeOutcome` | escrow capture into `PLATFORM_FLOAT` / `FARMER_PAYABLE` |
-| `charge.failed` | `ChargeFailedEvent` | `PaymentServiceImpl#onChargeFailed` | `applyChargeFailure` | none; mark `FAILED`, restore inventory |
 | `transfer.success` | `TransferSucceededEvent` | `PayoutServiceImpl#onTransferSucceeded` | `settleTransferSucceeded` | payout debits `FARMER_PAYABLE` / `PLATFORM_FLOAT` |
 | `transfer.failed` | `TransferFailedEvent` | `PayoutServiceImpl#onTransferFailed` | `settleTransferFailed` | reverse the pending payout hold |
 | `transfer.reversed` | `TransferReversedEvent` | `PayoutServiceImpl#onTransferReversed` | `settleTransferReversed` | restore the payable; finance attention |
