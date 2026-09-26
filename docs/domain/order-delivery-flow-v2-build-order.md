@@ -122,6 +122,7 @@ Found while building step 3's refunds and while testing against the real payment
 | Webhooks | provider messages are accepted only from the provider's published addresses | **Done** | #295 |
 | Refunds | a refund the provider refuses fails at once, and Admin-Ops can close a stuck one only on the provider's own evidence that it holds nothing | **Done** | #297 |
 | Payouts | a dispute resolved as a refund holds the farm's payout and puts the order in the refund queue, until the buyer is paid back | **Done** | #298 |
+| Payouts | a transfer the provider refuses fails the payout, and one whose reply was lost is resent under its own reference, which the provider refuses as a duplicate rather than pay twice | In review | #299 |
 | Engineering | the rules the code enforces by script, not by test, and a note on reading a locked order | **Done** | #287, #288, #296 |
 
 Two findings are worth carrying forward. The provider sends no "charge failed" message at all — a failed card simply leaves the transaction unpaid, and the platform notices by asking. And a payment attempt now says why it did not count, which is what a refund-by-hand needs: the attempt itself names the charge to give back.
