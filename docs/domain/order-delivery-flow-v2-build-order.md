@@ -129,6 +129,7 @@ Found while building step 3's refunds and while testing against the real payment
 | Webhooks | a provider message that fails to settle is answered so the provider sends it again, a burst of them no longer runs the database out of connections, and a settlement that fails leaves no audit behind | **Done** | #304 |
 | Refunds | a refund whose reply from the provider was lost is settled from the provider's own message, by the tag CropDoor gave it, and a message that only resembles ours settles nothing | **Done** | #305 |
 | Checkout | payments for several orders arriving at the same moment each book their own order, instead of failing and waiting to be sent again, and every one holds its order locked while it settles | **Done** | #307 |
+| Engineering | a database lock is taken only by a locking query, checked on every change, so the lock that failed silently under load cannot come back | **In review** | #309 |
 | Engineering | the rules the code enforces by script, not by test, and a note on reading a locked order | **Done** | #287, #288, #296 |
 
 Two findings are worth carrying forward. The provider sends no "charge failed" message at all — a failed card simply leaves the transaction unpaid, and the platform notices by asking. And a payment attempt now says why it did not count, which is what a refund-by-hand needs: the attempt itself names the charge to give back.
