@@ -126,7 +126,7 @@ Found while building step 3's refunds and while testing against the real payment
 | Disputes | Admin-Ops can correct a resolved dispute's outcome, except where money has already moved on it, and the farm sees the correction in its audit feed | **Done** | #300 |
 | Refunds | a refund waits for a cancelled or delivered order, and is refused once the farm's payout is in flight or paid — so the buyer never keeps both the produce and the money, and no order is paid out twice | **Done** | #301 |
 | Deliveries | only the agent on a run may collect, confirm or read its deliveries — no other agent can settle someone else's drop — and an Admin-Ops close-out is recorded as a close-out | **Done** | #302 |
-| Webhooks | a provider message that fails to settle is answered so the provider sends it again, a burst of them no longer runs the database out of connections, and a settlement that fails leaves no audit behind | **In review** | #304 |
+| Webhooks | a provider message that fails to settle is answered so the provider sends it again, a burst of them no longer runs the database out of connections, and a settlement that fails leaves no audit behind | **Done** | #304 |
 | Engineering | the rules the code enforces by script, not by test, and a note on reading a locked order | **Done** | #287, #288, #296 |
 
 Two findings are worth carrying forward. The provider sends no "charge failed" message at all — a failed card simply leaves the transaction unpaid, and the platform notices by asking. And a payment attempt now says why it did not count, which is what a refund-by-hand needs: the attempt itself names the charge to give back.
