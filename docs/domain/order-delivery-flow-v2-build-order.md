@@ -135,6 +135,7 @@ Found while building step 3's refunds and while testing against the real payment
 | Checkout | a second payment for an order already paid goes back to the buyer on its own | **Done** | #312 |
 | Notifications | a payment returned after its order was cancelled is told as that, not as a refund | **Done** | #313 |
 | Payments | a charge that does not book still records the fee the provider kept on it, and a charge already handed to Admin-Ops to refund by hand never books afterwards | **Done** | #314 |
+| Payments | a chargeback on a charge that never booked its order, or was already refunded, cannot pay the buyer twice | **In review** | #315 |
 | Engineering | the rules the code enforces by script, not by test, and a note on reading a locked order | **Done** | #287, #288, #296 |
 
 Two findings are worth carrying forward. The provider sends no "charge failed" message at all — a failed card simply leaves the transaction unpaid, and the platform notices by asking. And a payment attempt now says why it did not count, which is what a refund-by-hand needs: the attempt itself names the charge to give back.
