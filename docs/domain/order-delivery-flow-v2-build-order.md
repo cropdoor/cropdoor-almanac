@@ -132,7 +132,7 @@ Found while building step 3's refunds and while testing against the real payment
 | Engineering | a database lock is taken only by a locking query, checked on every change, so the lock that failed silently under load cannot come back | **Done** | #309 |
 | Checkout | a payment made after its order expired books the order, or goes back to the buyer on its own | **Done** | #310 |
 | Checkout | a checkout page stops taking money when its order expires | **Done** | #311 |
-| Checkout | a second payment for an order already paid goes back to the buyer on its own | **In review** | #312 |
+| Checkout | a second payment for an order already paid goes back to the buyer on its own | **Done** | #312 |
 | Engineering | the rules the code enforces by script, not by test, and a note on reading a locked order | **Done** | #287, #288, #296 |
 
 Two findings are worth carrying forward. The provider sends no "charge failed" message at all — a failed card simply leaves the transaction unpaid, and the platform notices by asking. And a payment attempt now says why it did not count, which is what a refund-by-hand needs: the attempt itself names the charge to give back.
