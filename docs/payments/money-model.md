@@ -226,7 +226,8 @@ stateDiagram-v2
     end note
     note right of DELIVERED
         POD: cash settles only at
-        delivery; not refundable.
+        delivery; refundable after it
+        by mobile-money transfer.
     end note
 ```
 
