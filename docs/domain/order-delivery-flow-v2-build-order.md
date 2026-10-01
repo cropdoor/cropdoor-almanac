@@ -141,6 +141,7 @@ Found while building step 3's refunds and while testing against the real payment
 | Refunds | a refusal no payment could reach is gone — cash is refunded by transfer, and an online payment always has its charge reference | **Done** | #322 |
 | Engineering | the live-testing runbook no longer says a Paystack refund can be pushed along from the dashboard — it cannot; wait for it | **Done** | #321 |
 | Refunds | a refund of the delivery fee alone no longer asks who bears it, and reverses only the fee | **Done** | #323 |
+| Engineering | one refund event instead of four, so a new refund status cannot be left unhandled | **In review** | #324 |
 | Engineering | the rules the code enforces by script, not by test, and a note on reading a locked order | **Done** | #287, #288, #296 |
 
 Two findings are worth carrying forward. The provider sends no "charge failed" message at all — a failed card simply leaves the transaction unpaid, and the platform notices by asking. And a payment attempt now says why it did not count, which is what a refund-by-hand needs: the attempt itself names the charge to give back.
