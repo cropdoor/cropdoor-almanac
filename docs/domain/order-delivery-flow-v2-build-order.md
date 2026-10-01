@@ -65,7 +65,7 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 2 · Telling people | Y3 | the three silences Y2 made visible, and the crew change that spoke twice | **Done** | #257 |
 | 2 · Telling people | Y4 | the refund nobody mentions — the buyer hears that a refund started, and that it was sent | **Done** | #282 |
 | 3 · Money rails | G1 | a refund carries its own name at the gateway, so two on one payment can be told apart | **Done** | #281 |
-| 3 · Money rails | G2 | refunds of a stated amount, and who bears them — and one credit note per refund | **In review** | #318 |
+| 3 · Money rails | G2 | refunds of a stated amount, and who bears them — and one credit note per refund | **Done** | #318 |
 | 3 · Money rails | G3 | ~~one credit note per refund, and the penalty line~~ — folded into G2; the penalty line moves to L | Folded | 23 Sep |
 | 3 · Money rails | T1 | the agent's collected cash recorded as received, so a cash order can be paid at all | **Done** | #277 |
 | 3 · Money rails | H | the payout run reads the ledger and skips a disputed order | **Done** | #276 |
