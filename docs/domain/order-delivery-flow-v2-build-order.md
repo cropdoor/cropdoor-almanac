@@ -85,7 +85,7 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 7 · After delivery | V | two ratings | Not started | — |
 | 7 · After delivery | W | the API document rewritten; the old flow pages retired | Not started | — |
 
-Twenty-five of forty-one are merged: **steps 0, 1 and 2 are complete**, and step 3 has three — G1, a refund's own name at the gateway; H, the payout reading the ledger; and T1, the cash an agent is holding, which is what made a cash order payable at all. G3 is folded into G2, so step 3 has G2 and I to go. The refund that could stay stuck forever is now closable (#297), so G2 is next. **#232 and #243 are not among them:** #232 corrected a Javadoc about the buyer's cancellation window, found while building step 0, and #243 lowered how many messages the dispatcher sends at once, decided while reading X2b's live run.
+Steps 0 to 3 are complete: every PR from A to I is merged (G3 folded into G2), so the money rails every later step reads are in place. Step 4, the farm, is next and starts with J, the availability check. **#232 and #243 are not counted:** #232 corrected a Javadoc about the buyer's cancellation window, found while building step 0, and #243 lowered how many messages the dispatcher sends at once, decided while reading X2b's live run.
 
 ## Work that is not in this order
 
