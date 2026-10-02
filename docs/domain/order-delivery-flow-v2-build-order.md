@@ -143,6 +143,7 @@ Found while building step 3's refunds and while testing against the real payment
 | Refunds | a refund of the delivery fee alone no longer asks who bears it, and reverses only the fee | **Done** | #323 |
 | Engineering | one refund event instead of four, so a new refund status cannot be left unhandled | **Done** | #324 |
 | Credit notes | a credit note for part of a receipt says how much of it it refunds ("GHS 25.00 of GHS 40.00 refunded"), never "partly refunded" on the note that completes the refund | **In review** | #325 |
+| Payments | a chargeback lost while the order's refund waits on Paystack can be settled once that refund finishes | **In review** | #326 |
 | Engineering | the rules the code enforces by script, not by test, and a note on reading a locked order | **Done** | #287, #288, #296 |
 
 Two findings are worth carrying forward. The provider sends no "charge failed" message at all — a failed card simply leaves the transaction unpaid, and the platform notices by asking. And a payment attempt now says why it did not count, which is what a refund-by-hand needs: the attempt itself names the charge to give back.
