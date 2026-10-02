@@ -147,7 +147,7 @@ Found while building step 3's refunds and while testing against the real payment
 | Payments | a lost chargeback reverses what the order's ledger holds, raising an alarm if that is not the payment, and a refund landing afterwards never posts on top of it | **Done** | #327 |
 | Payments | Paystack resending a lost chargeback is one loss: audited and counted once, while a different dispute is still raised | **Done** | #328 |
 | Refunds | a refund Paystack cannot send back on its own is finished in the app: Admin-Ops pick the buyer's bank or mobile-money network and enter the account | **Done** | #329 |
-| Payments | evidence for a contested chargeback uploads under any charge reference, and the bank list names each bank's payout code too | **In review** | #330 |
+| Payments | evidence for a contested chargeback uploads under any charge reference, and the bank list names each bank's payout code too | **Done** | #330 |
 | Engineering | the rules the code enforces by script, not by test, and a note on reading a locked order | **Done** | #287, #288, #296 |
 
 Two findings are worth carrying forward. The provider sends no "charge failed" message at all — a failed card simply leaves the transaction unpaid, and the platform notices by asking. And a payment attempt now says why it did not count, which is what a refund-by-hand needs: the attempt itself names the charge to give back.
