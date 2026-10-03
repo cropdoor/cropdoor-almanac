@@ -70,7 +70,7 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 3 · Money rails | T1 | the agent's collected cash recorded as received, so a cash order can be paid at all | **Done** | #277 |
 | 3 · Money rails | H | the payout run reads the ledger and skips a disputed order | **Done** | #276 |
 | 3 · Money rails | I | refund a cash buyer by mobile money — and collect the buyer payout destination nothing else collects | **Done** | #317 |
-| 4 · The farm | J | the availability check — the form, the photos, the outcomes, the overdue list | **J1, J2 done**, **J3 in review** — the check, its outcome acting (Not available cancels free, Short to Admin-Ops), and the awaiting-check list with its 8-working-hour deadline | #332, #333, #334 |
+| 4 · The farm | J | the availability check — the form, the photos, the outcomes, the overdue list | **Done** — the check (J1), its outcome acting (J2: Not available cancels free, Short to Admin-Ops), the awaiting-check list with its 8-working-hour deadline (J3) | #332, #333, #334 |
 | 4 · The farm | K | READY and the crew gate, with the acceptance and READY deadlines | Not started | — |
 | 4 · The farm | L | the cancellation windows, the penalty, and strikes | Not started | — |
 | 5 · The gate | M | HANDOFF by the farmer, IN TRANSIT by the delivery agent, and the alert between them | Not started | — |
