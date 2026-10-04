@@ -71,7 +71,7 @@ The one place that says what is finished. A PR is **Done** only once it is merge
 | 3 · Money rails | H | the payout run reads the ledger and skips a disputed order | **Done** | #276 |
 | 3 · Money rails | I | refund a cash buyer by mobile money — and collect the buyer payout destination nothing else collects | **Done** | #317 |
 | 4 · The farm | J | the availability check — the form, the photos, the outcomes, the overdue list | **Done** — the check (J1), its outcome acting (J2: Not available cancels free, Short to Admin-Ops), the awaiting-check list with its 8-working-hour deadline (J3); field agents told on acceptance and given their own list (J4); the check's outcome on the admin orders list, with a filter (J5) | #332, #333, #334, #335, #336 |
-| 4 · The farm | K | READY and the crew gate, with the acceptance and READY deadlines | **In progress** — no check, no crew, with the no-field-agent exception, the READY time and the awaiting-crew list (K1); the 24-hour acceptance deadline (K2) next | #337 |
+| 4 · The farm | K | READY and the crew gate, with the acceptance and READY deadlines | **In progress** — no check, no crew, with the no-field-agent exception, the READY time and the awaiting-crew list (K1); unaccepted orders cancelled after 24 hours (K2, in review) | #337, #338 |
 | 4 · The farm | L | the cancellation windows, the penalty, and strikes | Not started | — |
 | 5 · The gate | M | HANDOFF by the farmer, IN TRANSIT by the delivery agent, and the alert between them | Not started | — |
 | 5 · The gate | N | COLLECTION FAILED — reasons, the check made void, retry through READY | Not started | — |
