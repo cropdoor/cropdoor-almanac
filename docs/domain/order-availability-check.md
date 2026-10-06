@@ -35,8 +35,8 @@ flowchart LR
 
 - **Triggered by the farmer accepting.** Until then there is nothing to verify. The agent has **8 working hours** from acceptance to make the check (see below).
 - **One visit per farm per day.** The agent walks the farm once and submits one check for every accepted order waiting there — not one trip per order.
-- **By a field agent in the farm's zone.** Where the zone has no field agent, the delivery agent makes the check at the gate on collection day, before collecting — the one case where a crew goes out without a check already on the order. The two acts stay distinct — check form first, then the count at handoff — even when one person does both.
-- **Before the crew — and the crew is Admin/Ops' call.** When the farmer marks READY, Admin/Ops open the order on their dashboard, see the field agent's check there — who checked, when, the outcome, the photos — and assign a crew. **No check on the order, no crew.** READY is the farmer's signal; the check is what makes it safe to act on.
+- **By a field agent in the farm's zone.** Where the zone has no field agent, the delivery agent makes the check at the gate on collection day, before collecting — the one case where a crew goes out without a check already on the order. The two acts stay distinct — check form first, then the count at handoff — even when one person does both. *For now (3–4 Oct, decided by the CTO):* where a zone has no field agent, Admin/Ops may assign a crew without a check by giving a reason, which is audited. Working out "no agent in this zone" on its own, and holding the pickup until the delivery agent's gate check, come later.
+- **Before the crew — and the crew is Admin/Ops' call.** When the farmer marks READY, Admin/Ops open the order on their dashboard, see the field agent's check there — who checked, when, the outcome, the photos — and assign a crew. **No check on the order, no crew** — and any submitted check that could be made counts: Confirmed or Short, the same rule as the awaiting-check list. READY is the farmer's signal; the check is what makes it safe to act on.
 
 ## What the agent checks
 
@@ -46,10 +46,12 @@ The check is a short form on the agent's phone, filled at the farm. It works off
 
 | Field | Type | Why |
 | --- | --- | --- |
-| Who was present | Farmer / a farm member (name) / nobody | If nobody, the check cannot be completed — it is rescheduled, not failed |
-| Van can reach the gate | Yes / No / Only in dry weather | Already recorded at verification; re-confirmed because roads change. There are no collection points for now, so a farm the van cannot reach is something Admin/Ops must know before a crew is sent |
-| Location | Recorded automatically by the phone | Light evidence the check was made at the farm, not from the road |
+| Nobody present | Yes / No | If nobody, the check cannot be completed — it is rescheduled, not failed. *Simplified 2 Oct (CTO):* the check records only whether anyone was there, not who |
+| Van can reach the gate | Yes / No — *simplified 2 Oct (CTO): no "only in dry weather" answer* | Already recorded at verification; re-confirmed because roads change. There are no collection points for now, so a farm the van cannot reach is something Admin/Ops must know before a crew is sent |
+| Location | *Not recorded for now — simplified 2 Oct (CTO)* | Was to be light evidence the check was made at the farm, not from the road |
 | Notes | Free text, optional | Anything the crew should know: "gate is the blue one", "farmer's brother will hand over" |
+
+**Simplest first** (decided by the CTO, 2 October, building J1): the check ships without the phone's location, without the dry-weather van answer, and with presence as a yes/no rather than a name. Each may return after launch, if operating shows it is missed.
 
 Readiness is **not** a field on the form. The farmer declares it, later, by marking the order READY.
 
@@ -83,7 +85,7 @@ This is where the check earns its place: every outcome has a consequence and an 
 | Outcome | The order | The buyer | The farmer | Money |
 | --- | --- | --- | --- | --- |
 | **Confirmed** | May be marked READY by the farmer when packed; Admin/Ops then assign a crew | **Told nothing.** Their next message is "ready at the farm" | Told the check passed | Nothing moves |
-| **Short** | Paused until the buyer chooses — until the end of the next day, then cancelled with a full refund | Offered a choice about **their order**: take the reduced quantity (price adjusts down; for online payment the difference is refunded) or cancel free. **No agent, no visit, no farm finding is mentioned** | Told the finding | Refund of the difference, or full refund — no penalty either way |
+| **Short** | Paused until the buyer chooses — until the end of the next day, then cancelled with a full refund. *For now (3 Oct, CTO):* goes to Admin/Ops instead, with no automatic cancel | Offered a choice about **their order**: take the reduced quantity (price adjusts down; for online payment the difference is refunded) or cancel free. **No agent, no visit, no farm finding is mentioned**. *For now:* Admin/Ops agree the reduced order with the buyer by hand; the in-app choice is not built | Told the finding | Refund of the difference, or full refund — no penalty either way |
 | **Not available** | Cancelled | Refunded in full, no penalty, and told their order could not be filled. **Not told what the agent saw** | Told; the finding is recorded against the farm | Full refund |
 | **Could not check** | Unchanged | **Told nothing.** The free-cancel window stays open regardless, and a delay they were never promised is not news | Told when the agent will return | Nothing |
 
@@ -142,7 +144,7 @@ The seven open points from the first draft, answered — and folded into the pag
 | No field agent in the zone | **The delivery agent makes the check on collection day**, at the gate before collecting | The one case where a crew goes out without a check already on the order — still two acts, form then count |
 | Shelf life | **8 working hours** | The field agent's **deadline** from acceptance, not an expiry — confirmed 10 Sep |
 | Photos | **Three** per produce line | Required; timestamped and located |
-| Location | **Yes**, record it | Captured automatically on submission |
+| Location | **Yes**, record it | Captured automatically on submission — *not built for now (2 Oct, CTO); may return after launch* |
 | Who declares "ready by" | **The farmer, by marking READY** | The ready-by field leaves the agent's form; READY is the farmer's signal to Admin/Ops, made after the check |
 | Quality "above" | **Record it** | A farm consistently above its listing is a supply signal |
 
@@ -150,4 +152,4 @@ The seven open points from the first draft, answered — and folded into the pag
 
 ## For engineering
 
-The check is an order-scoped visit, not a new concept: it fits the existing farm-visit record — agent, zone, date, observations, van access, photos, submitted-at, versioning — with a new purpose, a link to the order, one finding row per order line, and a **derived** outcome. Outcome is computed from the line findings and never stored as a chosen value, so it cannot disagree with them. Acceptance schedules the check. The order's detail view for Admin/Ops carries the check — agent, time, outcome, photos — and crew assignment is refused while the order has no completed check — Confirmed, or Short with the buyer having chosen to take less — with the no-field-agent zone as the one exception. Three photos per line and the submission location are part of the capture. The check is captured through the existing offline sync envelope as a new capture kind, because agents work on bad links. The permission is the field-agent one, not the delivery one — the two roles stay separable. Each outcome is an audit action in the farm's feed. The finding never writes to the listing.
+The check is an order-scoped visit, not a new concept: it fits the existing farm-visit record — agent, zone, date, observations, van access, photos, submitted-at, versioning — with a new purpose, a link to the order, one finding row per order line, and a **derived** outcome. Outcome is computed from the line findings and never stored as a chosen value, so it cannot disagree with them. Acceptance schedules the check. The order's detail view for Admin/Ops carries the check — agent, time, outcome, photos — and crew assignment is refused while the order has no submitted check that could be made — Confirmed or Short, the same rule as the awaiting-check list (decided by the CTO, 3–4 October, building K1) — with the no-field-agent zone as the one exception. For now that exception is Admin/Ops assigning a crew without a check by giving a reason, which is audited; deriving the no-agent zone and holding the pickup on the delivery agent's gate check come later. Three photos per line are part of the capture; the submission location is not, for now (2 Oct). The check is captured through the existing offline sync envelope as a new capture kind, because agents work on bad links. The permission is the field-agent one, not the delivery one — the two roles stay separable. Each outcome is an audit action in the farm's feed. The finding never writes to the listing.

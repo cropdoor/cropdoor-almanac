@@ -33,6 +33,8 @@ flowchart TD
 
 Not drawn, to keep the picture readable: the buyer rating the produce and the delivery after DELIVERED; Admin/Ops cancelling at any step; and the one exception to the check-before-crew order — a zone with no field agent, where the delivery agent makes the check at the gate before collecting.
 
+*For now (3 Oct, decided by the CTO):* the Short branch is not built as drawn. A Short check goes to Admin/Ops, who agree the reduced order with the buyer by hand. The buyer's in-app choice — take less, or cancel free — and its cancel at the end of the next day are not built.
+
 Six actors: **Buyer**, **Farmer**, **Field Agent**, **Delivery Agent**, **Driver**, **Admin/Ops**. The driver is part of the crew and taps nothing. A farmer must have a smartphone: READY and HANDOFF are their own taps, and nobody taps for them.
 
 ## Who does what
@@ -43,7 +45,7 @@ Six actors: **Buyer**, **Farmer**, **Field Agent**, **Delivery Agent**, **Driver
 | 2 | **Farmer** | Accepts the order | The order is real. A field agent's check is now due |
 | 3 | **Field Agent** | Visits the farm within **8 working hours** of acceptance — one visit per farm per day, covering every accepted order there — and submits the check | The platform works out the outcome: **Confirmed**, **Short**, **Not available**, or **Could not check**. The check sits on the order for Admin/Ops to see. Defined on [the check page](order-availability-check.md) |
 | 4 | **Farmer** | Marks the order **READY** when it is packed | The farmer's signal to Admin/Ops that the crew can come. **The buyer's free cancellation ends here** |
-| 5 | **Admin/Ops** | Open the order, see the field agent's check and the farmer's READY, and assign a crew — a delivery agent and a driver | **No check on the order, no crew.** The one exception: a zone with no field agent, where the delivery agent makes the check at the gate before collecting |
+| 5 | **Admin/Ops** | Open the order, see the field agent's check and the farmer's READY, and assign a crew — a delivery agent and a driver | **No check on the order, no crew.** Any submitted check that could be made counts — Confirmed or Short. The one exception: a zone with no field agent, where the delivery agent makes the check at the gate before collecting. *For now (3–4 Oct, decided by the CTO):* Admin/Ops assign a crew without a check by giving a reason, which is audited; working out "no agent in this zone" on its own, and holding the pickup until the delivery agent's gate check, come later |
 | 5a | **Delivery Agent** | If the crew arrives and cannot collect — farmer absent, produce not there, short — takes **nothing** and records **COLLECTION FAILED** with the reason | Admin/Ops see the reason and decide; the farmer fixes it and marks READY again, or Admin/Ops cancel. The buyer may cancel free meanwhile — the failure was not theirs |
 | 6 | **Farmer** | Marks **HANDOFF** when the crew has the produce | The farmer's word that it left their hands. **The buyer can no longer cancel** |
 | 7 | **Delivery Agent** | Marks **IN TRANSIT** | The crew's word that we have it. The buyer sees "on its way"; Admin/Ops see the goods are in our hands |
@@ -58,23 +60,23 @@ Six actors: **Buyer**, **Farmer**, **Field Agent**, **Delivery Agent**, **Driver
 | Window | From | To | What the buyer gets back |
 | --- | --- | --- | --- |
 | **Free** | Placing the order | The farmer marks **READY** *(settled 10 September)*. The check happens inside this window, so the buyer hears whether the produce is there before it closes | Everything |
-| **With a penalty** | The farmer marks READY, after a few minutes' grace | The farmer marks HANDOFF | Online: everything minus the penalty — a fixed share of the produce value, which goes to the farmer, plus the delivery fee once a crew is assigned. Cash: nothing to deduct; the buyer gets a strike instead, and after a set number cash on delivery is switched off for them |
+| **With a penalty** | The farmer marks READY, after 15 minutes' grace | The farmer marks HANDOFF | Online: everything minus the penalty — a fixed share of the produce value (10%), which goes to the farmer less the order's commission, plus the delivery fee once a crew is assigned. The buyer is shown the exact penalty and confirms it before the cancel goes through. Cash: nothing to deduct; the buyer gets a strike instead, and after a set number cash on delivery is switched off for them |
 | **Not possible** | HANDOFF | — | The produce is on its way. Only Admin/Ops can cancel after this, and must say where the produce is |
 
-Two moments inside the penalty window where the buyer may still cancel free, because the delay is not theirs: while the order sits in COLLECTION FAILED, and once READY has waited more than two working days for a crew.
+Two moments inside the penalty window where the buyer may still cancel free, because the delay is not theirs: while the order sits in COLLECTION FAILED, and once READY has waited more than two working days for a crew. The second holds only while no crew is assigned: once a crew is on the order, the penalty applies again (4 Oct, decided by the CTO).
 
 ## Money, in one line each
 
 - **Online:** the buyer's money sits in CropDoor's escrow from placing until the payout run. Delivery turns it into money *owed* to the farmer; the payout run pays it, net of commission. A dispute holds it.
 - **Cash on delivery:** the delivery agent takes the cash at the door, before handing over, and remits it at the end of the run day — to the office or by mobile money to CropDoor's account — recorded per agent per day. Admin/Ops see cash outstanding per agent.
-- **A dispute** resolves to a partial or full refund. Online, it comes back out of escrow; on a cash order, by mobile money to the buyer's registered number. Who bears it is named in the resolution — the farm's payable, or our cost — never automatic. The payout run never pays an order until its dispute window has closed, so a farmer is never paid on an order that can still be disputed.
+- **A dispute** resolves to a partial or full refund. Online, it comes back out of escrow; on a cash order, by mobile money to the buyer's registered number. Who bears it is named in the resolution — the farm's payable, or our cost — never automatic. The payout run does not pay an order until its dispute window has closed, so a farmer is normally not paid on an order that can still be disputed. The one exception: Admin/Ops may pay a farmer early, inside the window, with an explicit override that is audited and flags the payout as paid early. An open dispute, or a refund still owed or in flight, always blocks the payout, override or not. There is no automatic payout run: every payout is an Admin/Ops action (6 Oct, decided by the CTO, confirming the payments design of 22 June).
 - **After HANDOFF the farmer is paid in full** whatever happens next — a failed delivery, a buyer's cancellation, our own failure. The buyer's penalty funds part of it on an online order; the rest is our cost. Before HANDOFF the farmer keeps the produce and is not paid.
 - **Stock** goes back on the listing on any cancellation before HANDOFF — the produce never left the farm — and never after. The listing stays the farmer's to edit.
 - **The gateway fee** on a free online cancellation is our cost. The penalty appears as a line on the refund's credit note.
 - **Farmers pay nothing when they fail** after READY: the buyer gets everything back, fee included, and the farm gets a strike. After a set number its listings pause pending Admin/Ops review.
 - **Refunds:** Short → the difference; Not available or a free-window cancellation → everything; a penalty-window cancellation → everything minus the penalty; a cancellation that is our fault → everything, fee included.
 - **Tax:** none on farm produce in Ghana today, so none on the penalty. Taxes are configured by Admin/Ops (finance) — name, description, percentage, and an on/off switch — not fixed in code. The list starts empty, and a new tax starts off: adding one never changes a price, switching it on does (questions 50–55).
-- **The penalty:** deducted from escrow, never chased. The farmer's share goes to what we owe the farmer; the fee, once a crew is assigned, is ours. Ops sets the share and the grace minutes. No deposit on cash orders for now — kept in reserve if failed cash deliveries turn out to be common.
+- **The penalty:** deducted from escrow, never chased. The farmer's share goes to what we owe the farmer, less the order's commission — **CropDoor takes its commission on the penalty share** (4 Oct, decided by the CTO). The fee, once a crew is assigned, is kept and goes where it goes on a delivered order. A chargeback lost on a penalised order takes the farmer's share back. Ops sets the share and the grace minutes. No deposit on cash orders for now — kept in reserve if failed cash deliveries turn out to be common.
 
 ## The numbers Ops sets
 
@@ -83,15 +85,15 @@ The flow names the rule; Ops sets the number, and can change it without a rebuil
 | Number | Starting value |
 | --- | --- |
 | Field agent's deadline for the check, from acceptance | 8 working hours |
-| Grace after READY before the buyer's penalty applies | A few minutes |
-| The buyer's penalty: share of the produce value to the farmer | Ops sets |
+| Grace after READY before the buyer's penalty applies | 15 minutes |
+| The buyer's penalty: share of the produce value to the farmer | 10%, less the order's commission |
 | Strikes before cash on delivery is switched off for a buyer | Ops sets |
 | Strikes before a farm's listings pause | Ops sets |
 | Waiting for acceptance before auto-cancel | 24 hours |
-| READY without a crew before the buyer may cancel free | 2 working days |
+| READY without a crew before the buyer may cancel free | 2 working days, while no crew is assigned |
 | HANDOFF without IN TRANSIT before Admin/Ops are alerted | 1 hour |
 | Accepted without READY before Admin/Ops call, then cancel | 3 working days |
-| A Short check waiting for the buyer's choice | End of the next day — a setting, "days after, at end of day" (question 54) |
+| A Short check waiting for the buyer's choice | End of the next day — a setting, "days after, at end of day" (question 54). Not built for now: Admin/Ops handle a Short by hand (3 Oct) |
 | DELIVERY FAILED waiting for the buyer to ask for a second attempt | End of the next day — the same setting |
 
 Three more are already live, on the admin settings screen, since step 1:
@@ -104,11 +106,13 @@ Three more are already live, on the admin settings screen, since step 1:
 | Dispute window after delivery, during which the payout waits | Ops sets |
 | Admin/Ops resolve a dispute within | 5 working days |
 
-The penalty share, the two strike counts and the grace minutes stay "Ops sets" until launch — they are chosen with the first real numbers, not before.
+The grace minutes, the penalty share and the two-working-day wait are set as defaults Ops can change, on the Orders tab of the settings screen (4 Oct, decided by the CTO; shipped with L1a, #346). The two strike counts stay "Ops sets" until launch — they are chosen with the first real numbers, not before.
+
+**A working day** is 08:00 to 17:00, Monday to Saturday, Ghana time (UTC). Public holidays are not counted out (4 Oct, decided by the CTO). Every "working hours" and "working days" number on this page reads it.
 
 ## What the buyer sees
 
-Placed → Accepted → Confirmed available → Ready at the farm → On its way → Delivered. Then: rate, or raise a dispute. The buyer never sees the crew assignment or the handoff as separate steps.
+Placed → Accepted → Ready at the farm → On its way → Delivered. Then: rate, or raise a dispute. The buyer never sees the crew assignment or the handoff as separate steps, and never sees the availability check as a step — corrected 5 Oct to match the decision of 13 September that the buyer is never told about the check itself. The check reaches the buyer only as a change to their order: a cancellation, or a shortfall.
 
 ## What Admin/Ops watch
 
@@ -118,7 +122,7 @@ Every state has a way of going quiet. These are the lists, in flow order:
 | --- | --- |
 | Accepted, no check after 8 working hours | Field agent |
 | Accepted, not READY after three working days | Admin/Ops call the farmer; then cancel with a full refund |
-| Short, buyer has not chosen by the end of the next day | Nobody — cancelled automatically, full refund |
+| Short, buyer has not chosen by the end of the next day | Nobody — cancelled automatically, full refund. Not built for now: a Short goes to Admin/Ops, who agree it with the buyer by hand (3 Oct) |
 | Crew assigned for today, nothing recorded by the end of the day | Admin/Ops |
 | READY, no crew assigned | Admin/Ops — their own queue. Past two working days the buyer may cancel free; the delay is ours |
 | Placed, not accepted after 24 hours | Nobody — cancelled automatically, full refund |
@@ -189,7 +193,7 @@ Questions 12 and 14 — the buyer has no code; nobody home or the buyer refuses 
 
 Every question on the [working-answers page](order-delivery-flow-v2-working-answers.md) is decided; that page keeps the reasoning behind each answer. The last to close: farm produce does not attract taxes in Ghana today, so neither does the cancellation fee. Taxes are not fixed in code — Admin/Ops (finance) configure them in the platform as a name, a description and a percentage.
 
-**Texts** (decided). Buyer: placed with the code, accepted, ready at the farm, on its way, delivered, dispute received — and, when they happen, collection delayed, delivery could not be completed, cancelled and refunded, cash received, and — when the check finds less than was ordered — the choice to take the reduced quantity or cancel free. **The buyer is never told about the check itself** (13 Sep): it is an internal supply measure, and they hear only what changed about their own order. Farmer: new order, agent coming, check result, crew assigned, collection failed with the reason, produce coming back, paid.
+**Texts** (decided). Buyer: placed with the code, accepted, ready at the farm, on its way, delivered, dispute received — and, when they happen, collection delayed, delivery could not be completed, cancelled and refunded, cash received, and — when the check finds less than was ordered — the choice to take the reduced quantity or cancel free. That last one waits: for now Admin/Ops agree a Short with the buyer by hand (3 Oct). **The buyer is never told about the check itself** (13 Sep): it is an internal supply measure, and they hear only what changed about their own order. Farmer: new order, agent coming, check result, crew assigned, collection failed with the reason, produce coming back, paid.
 
 ## For engineering
 
