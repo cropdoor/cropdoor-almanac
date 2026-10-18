@@ -169,7 +169,7 @@ flowchart LR
 | What they record | A reason — **farmer absent**, **produce not there**, **short** — and a note; a photo if there is something to photograph | A reason — **not paid in full**, **refused**, **nobody home**, **could not show the code** — and a note; a photo of the produce still in the van |
 | Where the produce is | Still the farmer's. Nothing was taken | In our van. It goes back to the farm, and the delivery agent records it **returned** on arrival |
 | Money | Nothing moves. Escrow stays held | Nothing moves. No cash is taken — there is no partial payment |
-| Stock | Still set aside for this order until Admin/Ops cancel; then back on the listing | Went out and came back. Not put back on the listing automatically — the farmer decides whether it is still saleable |
+| Stock | Still set aside for this order until Admin/Ops cancel; then back on the listing | Still set aside for this order until Admin/Ops cancel. A cancel with the produce returned to the farm puts it back on the listing; any other answer for where the produce is (with us, unknown, disposed of) withholds it |
 | The buyer is told | "Collection was delayed at the farm. We'll update you." The buyer may cancel **free** while the order sits here — the failure was not theirs | They were there, or were not. "We could not complete your delivery: *reason*. Admin/Ops will contact you." |
 | The farmer is told | The reason, in their words | "Your produce is coming back today." |
 | Admin/Ops see | The order in their queue with the reason, the agent's note and photo | The same |
