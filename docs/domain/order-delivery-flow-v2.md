@@ -170,8 +170,8 @@ flowchart LR
 | Where the produce is | Still the farmer's. Nothing was taken | In our van. It goes back to the farm, and the delivery agent records it **returned** on arrival |
 | Money | Nothing moves. Escrow stays held | Nothing moves. No cash is taken — there is no partial payment |
 | Stock | Still set aside for this order until Admin/Ops cancel; then back on the listing | Still set aside for this order until Admin/Ops cancel. A cancel with the produce returned to the farm puts it back on the listing; any other answer for where the produce is (with us, unknown, disposed of) withholds it |
-| The buyer is told | "Collection was delayed at the farm. We'll update you." The buyer may cancel **free** while the order sits here — the failure was not theirs | They were there, or were not. "We could not complete your delivery: *reason*. Admin/Ops will contact you." |
-| The farmer is told | The reason, in their words | "Your produce is coming back today." |
+| The buyer is told | "Collection was delayed at the farm. We'll update you." The buyer may cancel **free** while the order sits here — the failure was not theirs | They were there, or were not. "We could not complete your delivery: *reason*. CropDoor support will contact you." |
+| The farmer is told | The reason, in their words | "Your produce is coming back to you." |
 | Admin/Ops see | The order in their queue with the reason, the agent's note and photo | The same |
 | Ways out | The farmer fixes it and marks **READY again** — the order re-enters Admin/Ops' queue for a crew. For *not there* or *short* the old check is void: the field agent checks again before a crew goes. For *farmer absent* the check stands. Or Admin/Ops **cancel** — buyer refunded in full, the failure recorded against the farm | Once returned to the farm: one second attempt if the buyer asks and pays the delivery fee again — the farmer marks **READY again**; otherwise Admin/Ops **cancel**, with a strike on the buyer and the penalty deducted on an online order |
 
