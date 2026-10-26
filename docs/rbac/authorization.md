@@ -8,7 +8,7 @@ This page covers the two halves of that answer. First, **permission resolution**
 
 ## Permission resolution
 
-The single source of truth for "what can this caller do" is `PermissionResolutionService` (`service/rbac/PermissionResolutionService.java`). Its `effectivePermissionCodes(User)` method returns an immutable `Set<String>` of bare permission codes, resolved live from the caller's one active role.
+The single source of truth for "what can this caller do" is `PermissionResolutionService` (`service/rbac/PermissionResolutionService.java`). Its `effectivePermissionCodes(User)` method returns an immutable `Set<String>` of bare permission codes, resolved fresh from the role on the caller's one ACTIVE membership.
 
 ### The resolution order
 
@@ -23,35 +23,48 @@ sequenceDiagram
     alt user null or user.id null
         Svc-->>Caller: empty set
     else
-        Svc->>DB: PlatformAdminRepository.findActiveByUserId(userId)
-        alt active PlatformAdmin exists
-            Svc->>DB: RolePermissionRepository.findByRole_Id(admin.role.id)
-            Svc-->>Caller: codes e.g. PLATFORM::USER::VIEW, PLATFORM::AUDIT::VIEW
-        else no active admin
-            Svc->>DB: MemberRepository.findActiveByUser(userId)
-            alt pending/active Member exists
-                Svc->>DB: RolePermissionRepository.findByRole_Id(member.role.id)
-                Svc-->>Caller: codes e.g. FARM::MEMBER::VIEW, FARM::FINANCIAL::VIEW
-            else dormant
-                Svc-->>Caller: empty set
-            end
+        Svc->>DB: MembershipRepository.findActiveByUser(userId)
+        alt an ACTIVE membership exists (platform or organisation)
+            Svc->>DB: RolePermissionRepository.findByRole_Id(membership.role.id)
+            Svc-->>Caller: codes e.g. PLATFORM::USER::VIEW, or FARM::MEMBER::VIEW
+        else PENDING, revoked, expired, org-deleted, or none
+            Svc-->>Caller: empty set
         end
     end
 ```
 
-The resolver walks one of two chains, **platform first**:
+A person's affiliation is a single `Membership` row (`model/rbac/Membership.java`), platform or organisation; the separate platform-admin and org-member tables, and the platform-first, org-second fallback the resolver used to walk, are gone. So there is one chain:
 
-1. **Platform tier.** `PlatformAdminRepository#findActiveByUserId` — an `ACTIVE` `PlatformAdmin` row resolves to its role's permission codes. If a caller somehow held both an admin row and a member row, the admin path wins; the order is defined even though today the two are mutually exclusive.
-2. **Org tier.** Otherwise `MemberRepository#findActiveByUser` — a `PENDING` *or* `ACTIVE` `Member` (`model/rbac/Member.java`), since the query matches both statuses — resolves to its role's codes. Because a user holds [at most one such membership](../domain/index.md), that one role is the caller's full org-scoped authority. (A `PENDING` invitee resolves to the codes here but is still turned away at the org controller — the admission gate adds a strict `ACTIVE` filter; see the load-bearing note below.)
-3. **Dormant.** No active admin *and* no active member yields an **empty set**. A `STAFF` user whose membership was revoked, expired, or org-deleted lands here — they can authenticate but hold no permissions.
+1. **The one ACTIVE membership.** `MembershipRepository#findActiveByUser`, whose query matches `status = 'ACTIVE'` only, resolves to its role's permission codes. Because a user holds [at most one live membership](../domain/index.md), that one role is the caller's whole authority, platform or org.
+2. **Everything else is dormant.** No ACTIVE membership yields an **empty set**: a `PENDING` invitee who has not accepted, and a user whose membership was revoked, expired, or org-deleted. They can authenticate but hold no permissions.
 
-Both branches join `Role → RolePermission → Permission` and project `Permission#getCode`. The codes are scope-disjoint by convention (`FARM::*`, `BUYER::*`, `PLATFORM::*`), so they coexist in one flat set without prefixing.
+The lookup joins `Role → RolePermission → Permission` and project `Permission#getCode`. The codes are scope-disjoint by convention (`FARM::*`, `BUYER::*`, `PLATFORM::*`), so they coexist in one flat set without prefixing.
+
+### Only an ACTIVE membership grants
+
+`MembershipRepository` answers two different questions, with a pair of lookups each, and the split between them is the rule:
+
+| Question | Lookups | Statuses matched | Read by |
+| --- | --- | --- | --- |
+| **What does this person hold?** (a grant) | `findActiveByUser`, `findActivePlatformByUser` | `ACTIVE` only | the authorities `CustomUserDetailsService` loads, `effectivePermissionCodes` and the `belongsTo…With` gates (the chat subscription check among their callers), the org context, the Admin/Ops idle session, and every org read that checks membership without a permission (the farm, buyer-profile and org-role reads) |
+| **Which slot does this person occupy?** | `findLiveByUser`, `findLivePlatformByUser` | `PENDING` or `ACTIVE` | the one-org-per-user guards, invite collisions, both invite accepts, and the refusals of staff and pending invitees |
+
+What follows from it:
+
+- **A `PENDING` membership holds the slot but grants nothing.** An invitee who has not accepted gets no `ROLE_PLATFORM_STAFF`, no `ROLE_SUPER_ADMIN` and no permission code, so every `hasAuthority` / `hasRole` gate and every `belongsToFarmWith` / `belongsToBuyerProfileWith` gate turns them away with **403**, and so does every org read gate. The `PENDING` row still counts against the one-org-per-user index, so the invitee cannot take a second organisation meanwhile.
+- **A `PENDING` platform invite resolves to staff.** "Is this person platform staff?" is a slot question, so it reads the live lookup, and an invitee is staff to every door that refuses staff: the phone-code doors. An anonymous phone verification gives them `PHONE_VERIFIED` with no tokens, phone login and the SMS password reset refuse them, and registration cannot resume their account. Staff sign in with their password and MFA, after accepting the invite.
+- **The account has to be ACTIVE as well.** `JwtAuthFilter` treats a principal whose account is not ACTIVE as signed out (401), and a refresh refuses it, so a suspension takes effect on the next request.
+
+**Why the rule is written this way.** Before #185, the org chain read a `findActiveByUser` whose query, despite its name, matched `PENDING` as well as `ACTIVE`, and a `PENDING` member resolved to the role's full codes; the platform chain was strictly `ACTIVE`. #185 merged the two tables into one membership row and kept the looser reading for both sides, so a `PENDING` platform invite began to grant its role's full platform authorities: anyone holding the invited phone could get a platform-staff session with an SMS code alone, skipping the invite, the password, the terms and MFA. The security fix *Pending invite sign-in* (its spec is in the engineering vault under that name) put the `ACTIVE` rule back at every grant site and gave each of the two questions its own pair of lookups, so the name of a lookup now says which question it answers.
+
+!!! info "Status"
+    The security fix *Pending invite sign-in*: part 1 merged (#378, 26 Oct 2026), and it is what this section describes. Part 2, the hardening its later reviews found, is in progress; develop is not promoted beyond testing until it lands.
 
 ### Load-bearing properties
 
-- **Read-only and transactional.** The service is `@Transactional(readOnly = true)`; the whole `Admin/Member → Role → RolePermission → Permission` traversal runs in one read.
+- **Read-only and transactional.** The service is `@Transactional(readOnly = true)`; the whole `Membership → Role → RolePermission → Permission` traversal runs in one read.
 - **Uncached, by design.** Codes are re-resolved on every call. A mid-session role edit propagates on the caller's next request — there is no cache to invalidate, so stale permissions are always a *client-side* artifact (see the [debugging table](#common-403-scenarios) below).
-- **The two chains disagree on `PENDING` — strict `ACTIVE` lives only in the org admission gate.** The platform chain is strictly `ACTIVE`: `PlatformAdminRepository#findActiveByUserId` filters `status = 'ACTIVE'`, so a `SUSPENDED` / `REVOKED` / `EXPIRED` admin resolves as dormant. The org chain is looser: `findActiveByUser` matches `status IN ('PENDING','ACTIVE')` and the resolver adds no further check, so a `PENDING` (invited-but-not-yet-accepted) member resolves to its role's **full** codes — only `REVOKED`, `EXPIRED`, and `ORG_DELETED` members are dormant. The strict `ACTIVE`-only requirement for org endpoints is enforced separately, by `belongsToFarmWith` / `belongsToBuyerProfileWith`, which layer a `status == ACTIVE` filter on top before admitting the request (Layer 1). So a `PENDING` member has codes on paper but is still turned away at the org controller.
+- **One status rule for both tiers.** Platform staff and org members resolve through the same ACTIVE-only lookup, so a `PENDING`, `SUSPENDED`, `REVOKED`, `EXPIRED` or `ORG_DELETED` membership is dormant on either side. The `belongsToFarmWith` / `belongsToBuyerProfileWith` gates read that same ACTIVE membership and add only "of this organisation" (Layer 1); they no longer carry an ACTIVE filter of their own, because nothing beneath them can grant a `PENDING` member a code.
 
 ### The convenience accessors
 
