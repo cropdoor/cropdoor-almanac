@@ -4,6 +4,9 @@ This page owns the token machinery behind every authenticated CropDoor request: 
 
 Two facts anchor the rest of the page. First, **authorities are never in the token** — the JWT carries identity and a login-`scope`, and permissions are re-resolved from the database on every single request. Second, **only hashes hit disk** — the raw refresh JWT is returned to the client once and never persisted, and the blacklist stores a SHA-256 digest, not the token. All response payloads below are the `data` field of the `ApiResponse<T>` wrapper.
 
+!!! info "Status"
+    The parsing, the filter, the refresh and the logout below are as the security fix *Pending invite sign-in* part 2 leaves them (#379, ready 26 Oct 2026, not yet merged); the places it changed are marked as part 2's. Develop is not promoted beyond testing until it has merged and passed its live verify.
+
 ## The token pair — `JwtProvider`
 
 `security/jwt/JwtProvider.java` mints both tokens, signing each with HMAC-SHA512 (`HS512`) using the active signing key and stamping the key's `kid` into the JWS header. `JwtProvider#generateToken` builds the access token; `JwtProvider#generateRefreshToken` builds the refresh token. Both take a `CustomUserDetails` and the resolved `LoginContextResponse`, so the token records *which* context the session runs in.
@@ -16,11 +19,22 @@ Two facts anchor the rest of the page. First, **authorities are never in the tok
 | `iat` / `exp` | yes | yes | Issued-at / expiry, from the injected `Clock` |
 | `userId` | yes | yes | The `users` row id |
 | `email` | yes | no | Same value as `sub` (email-or-phone); named `email` for historical reasons |
-| `type` | no | `"refresh"` | Marks the refresh token; informational (see below) |
+| `type` | no | `"refresh"` | Marks the refresh token; each door checks it (see the parsing below): the refresh door accepts only `"refresh"`, the access door refuses it |
 | `scope` | yes | yes | The `LoginContextType` name, e.g. `PLATFORM_ADMIN`, `FARM_MEMBER`, `BUYER_MEMBER`, `DORMANT` |
 | `ownerId` / `ownerType` | org contexts only | org contexts only | The owning farm/buyer org for member contexts |
 
 There are **no role or permission claims**. `JwtProvider#generateToken` documents this deliberately: embedding authorities would leak permission codes in any captured token, bloat the token, and go stale the instant a role is edited. Authorization is instead rebuilt per request (next section) and is the canonical topic of [RBAC authorization](../rbac/authorization.md).
+
+### Parsing: one parse, one shape per door
+
+Since part 2 (#379), every token is parsed and verified in one place, `JwtProvider#verifiedClaims`: the key its `kid` names, the signature, and an `exp` not yet passed. The door's shape check then reads the verified claims in the same step. Each door has exactly one way in, and each refuses the other's token (deny-by-default):
+
+| Method | Read by | Accepts only | Returns |
+| --- | --- | --- | --- |
+| `JwtProvider#parseAccessToken` | `JwtAuthFilter` on HTTP and the chat WebSocket's `CONNECT` alike | a non-blank `email` and `scope` claim, an `exp`, and no `type` of `refresh` | the `email` claim (the principal is loaded by it) and the `exp` |
+| `JwtProvider#parseRefreshToken` | `AuthServiceImpl#refreshToken` | a `type` of `refresh`, a non-blank `sub` and an `exp` | the `sub` |
+
+A token that does not verify or has the wrong shape comes back empty, a claim of the wrong type (a number where a string belongs) included, so it is refused rather than answered with a 500. The old `validateToken` and per-claim readers are gone.
 
 ### Token lifetimes
 
@@ -31,7 +45,7 @@ TTLs are role-aware. Non-admins use the platform defaults bound under `app.jwt.*
 | Non-admin (`FARMER` / `BUYER` / `STAFF`) | 15 min (`900000` ms) | 7 days (`604800000` ms) | `JwtKeyConfig` (`app.jwt.expiration-ms`, `app.jwt.refresh-expiration-ms`) |
 | Admin (`UserType.ADMIN`) | 5 min (`300000` ms) | 1 day (`86400000` ms) | `AdminSessionProperties` (`app.security.admin.access-ttl-ms`, `app.security.admin.refresh-ttl-ms`) |
 
-One subtlety: the persisted `refresh_tokens.expires_at` row is always stamped with the platform default (7 days) in `RefreshTokenServiceImpl`, even for admins, whereas the admin refresh JWT's own `exp` is 1 day. Because `AuthServiceImpl#refreshToken` runs `JwtProvider#validateToken` (which checks the signature and `exp`) before the stored row's `expires_at` is ever consulted, the shorter 1-day JWT expiry governs for admins — the longer DB expiry never gets a chance to matter.
+One subtlety: the persisted `refresh_tokens.expires_at` row is always stamped with the platform default (7 days) in `RefreshTokenServiceImpl`, even for admins, whereas the admin refresh JWT's own `exp` is 1 day. Because `AuthServiceImpl#refreshToken` accepts the token through `JwtProvider#parseRefreshToken` (which checks the signature and `exp`) before the stored row's `expires_at` is ever consulted, the shorter 1-day JWT expiry governs for admins — the longer DB expiry never gets a chance to matter.
 
 ## Signing keys & rotation — `JwtKeyProvider`
 
@@ -45,14 +59,13 @@ Exactly one key is the **active signing key** (`JwtKeyProvider#getActiveKey`, it
 
 That split is what makes rotation seamless. New tokens sign with the new active key; tokens already in the wild keep verifying against whichever retired key their `kid` names.
 
-```
-Rotation procedure (no live token is invalidated):
-  1. add a new keys[n] entry: fresh kid, fresh 64+ char secret, active = true
-  2. flip the previous active entry to active = false — but KEEP it in the list
-  3. redeploy: JwtKeyProvider now signs with the new kid, still verifies the old
-  4. wait out the max refresh TTL (7 days) so every old-kid token has expired
-  5. only then remove the retired keys[n] entry
-```
+The rotation procedure, which invalidates no live token:
+
+1. Add a new `keys[n]` entry: a fresh `kid`, a fresh secret of 64 or more characters, `active = true`.
+2. Flip the previous active entry to `active = false`, but keep it in the list.
+3. Redeploy: `JwtKeyProvider` now signs with the new `kid` and still verifies the old one.
+4. Wait out the longest refresh TTL (7 days), so every token with the old `kid` has expired.
+5. Only then remove the retired `keys[n]` entry.
 
 ## Per-request authentication — the filter chain
 
@@ -64,28 +77,25 @@ Rotation procedure (no live token is invalidated):
 
 `security/jwt/JwtAuthFilter.java` (`OncePerRequestFilter`) re-authenticates on **every** request — there is no server session to reuse. Its logic in `authenticateRequest`:
 
-```
-parse "Authorization: Bearer <jwt>"  (absent → continue unauthenticated)
-if !validateToken(jwt) OR isBlacklisted(jwt)        → continue unauthenticated
-if email claim missing/blank                        → continue unauthenticated
-if scope claim missing/blank                        → continue unauthenticated
-userDetails = CustomUserDetailsService.loadUserByUsername(email)
-if principal is ADMIN and admin-idle key missing    → write 401, stop chain
-add SCOPE_<scope> authority, set SecurityContext
-```
+1. Read `Authorization: Bearer <jwt>`. Absent: continue unauthenticated.
+2. Accept it through `JwtProvider#parseAccessToken`. Empty (it does not verify, has expired, or is not an access token, a refresh token included), or blacklisted: continue unauthenticated.
+3. Load the principal with `CustomUserDetailsService#loadUserByUsername`, by the token's `email` claim. No such account: continue unauthenticated.
+4. The account is not ACTIVE (suspended, or a pending invitee): continue unauthenticated, so a suspension takes effect at the next request.
+5. Platform staff (the `ROLE_PLATFORM_STAFF` authority, which only an ACTIVE platform membership grants) whose `admin-idle` key is missing: write a 401 and stop the chain.
+6. Set the `SecurityContext` with the principal's own authorities.
 
-The load-bearing step is `loadUserByUsername`: `CustomUserDetailsService` re-derives the principal's authorities from the database (`ROLE_ADMIN` / `ROLE_SUPER_ADMIN` plus bare permission codes, or the member's role-permissions) on each call — this is why a revoked permission takes effect on the very next request without re-issuing tokens. The filter then layers on a request-scoped `SCOPE_<scope>` authority read from the JWT's `scope` claim, letting endpoints gate org-side surfaces with `hasAuthority('SCOPE_FARM_MEMBER')`. Authority resolution is the canonical topic of [RBAC authorization](../rbac/authorization.md).
+The load-bearing step is `loadUserByUsername`: `CustomUserDetailsService` re-derives the principal's authorities from the database (`ROLE_ADMIN` / `ROLE_SUPER_ADMIN` plus bare permission codes, or the member's role-permissions) on each call — this is why a revoked permission takes effect on the very next request without re-issuing tokens. The filter adds no authority from the token. Until part 2 (#379) it also added a `SCOPE_<scope>` authority from the `scope` claim. Nothing gated on it, and part 2 removed it: that claim is resolved at sign-in from the live membership, a pending invite included, so an authority derived from it would grant a pending invitee's token whatever came to gate on it. The `scope` claim stays only as part of the access-token shape. Authority resolution is the canonical topic of [RBAC authorization](../rbac/authorization.md).
 
 ```mermaid
 flowchart TD
     A["Request with Authorization header"] --> B["JwtAuthFilter"]
-    B --> C{"valid JWT and not blacklisted?"}
+    B --> C{"parseAccessToken accepts it, and not blacklisted?"}
     C -->|"no"| U["proceed unauthenticated"]
-    C -->|"yes"| D{"email and scope claims present?"}
+    C -->|"yes"| E["loadUserByUsername by the email claim — rebuild authorities from DB"]
+    E --> D{"account found and ACTIVE?"}
     D -->|"no"| U
-    D -->|"yes"| E["loadUserByUsername — rebuild authorities from DB"]
-    E --> F{"admin principal?"}
-    F -->|"no"| G["set SecurityContext + SCOPE_scope authority"]
+    D -->|"yes"| F{"platform staff?"}
+    F -->|"no"| G["set SecurityContext, the principal's authorities only"]
     F -->|"yes"| H{"admin-idle key present in Redis?"}
     H -->|"no"| I["401 SESSION_IDLE, stop chain"]
     H -->|"yes"| J["refresh idle TTL, set SecurityContext"]
@@ -94,7 +104,7 @@ flowchart TD
     J --> L
 ```
 
-A benign no-auth case (no token, bad token, blacklisted token) does **not** 401 inside the filter — it lets the request proceed unauthenticated so the authorization layer can decide. If the endpoint requires authentication, Spring Security invokes `security/jwt/JwtAuthEntryPoint.java`, which writes a `401` with a deliberately generic `"Unauthorized"` message and `ErrorCode.INVALID_TOKEN`. The concrete Spring Security exception (bad credentials, locked, unknown user) is logged server-side at WARN but never returned, to avoid handing an unauthenticated caller account-enumeration signal.
+A benign no-auth case (no token, a bad or expired token, a refresh token, a blacklisted token, an account that is not ACTIVE) does **not** 401 inside the filter — it lets the request proceed unauthenticated so the authorization layer can decide. If the endpoint requires authentication, Spring Security invokes `security/jwt/JwtAuthEntryPoint.java`, which writes a `401` with a deliberately generic `"Unauthorized"` message and `ErrorCode.INVALID_TOKEN`. The concrete Spring Security exception (bad credentials, locked, unknown user) is logged server-side at WARN but never returned, to avoid handing an unauthenticated caller account-enumeration signal.
 
 The admin idle-session gate — the `admin-idle:<userId>` Redis key and its sliding 30-minute TTL — is enforced here but owned by [admin login and MFA](admin-login-and-mfa.md).
 
@@ -106,30 +116,48 @@ The admin idle-session gate — the `admin-idle:<userId>` Redis key and its slid
 
 `POST /v1/auth/refresh-token` (`AuthController#refreshToken` → `AuthServiceImpl#refreshToken`) exchanges a refresh token for a brand-new access **and** refresh token pair. The endpoint is unauthenticated (the refresh token is the credential), and the caller may pass the old — even expired — access token in the `Authorization` header so it can be blacklisted on the way out. The `RefreshTokenRequest` body carries the refresh token itself.
 
-The service validates the refresh JWT's signature and expiry, resolves the user from its `sub`, mints the new pair (re-resolving the login context so a context change is picked up), then hands the actual rotation to `RefreshTokenServiceImpl#rotateRefreshToken`. Refresh tokens are **one-time-use**: rotating marks the presented row `revoked = true` and inserts a fresh row. Raw tokens are never stored — `service/auth/RefreshTokenServiceImpl.java` hashes every token with `util/TokenHasher.java` (SHA-256) and matches on the hash, so the `type = "refresh"` claim is only informational: an access token replayed here simply finds no persisted hash row and is rejected.
+The service accepts the token through `JwtProvider#parseRefreshToken`, loads the principal by its `sub` through `CustomUserDetailsService` and refuses an account that is not ACTIVE, mints the new pair (re-resolving the login context so a context change is picked up), then hands the rotation to `RefreshTokenServiceImpl#rotateRefreshToken`, with the principal's user as the owner the stored row must belong to. Refresh tokens are **one-time-use**. Raw tokens are never stored — `service/auth/RefreshTokenServiceImpl.java` hashes every token with `util/TokenHasher.java` (SHA-256) and matches on the hash.
 
-**Reuse detection** is the theft countermeasure. Because a rotated row is marked `revoked` but not deleted (it lingers until the daily cleanup or its expiry), replaying an already-rotated token still finds its row — now flagged revoked. That is the tell:
+### The rotation: insert, then a conditional revoke
 
-- Presented hash matches an **active** (`revoked = false`) row → normal rotation: revoke it, issue the new pair.
-- Presented hash matches **no active** row → `handlePotentialReuse` looks the hash up ignoring revoked-state. If it finds a **revoked** row, this is a replay of an already-consumed token → **revoke every refresh token for that user** (`revokeAllByUser`) and emit `AuditAction.REFRESH_TOKEN_REUSE_DETECTED`. Either way the caller gets `InvalidRefreshTokenException`.
-- Presented hash matches nothing at all (a garbage or never-issued token) → just `InvalidRefreshTokenException`, no mass revocation.
+Since part 2 (#379), `rotateRefreshToken` takes no lock at the read, and decides each presentation in this order:
 
-The mass-revocation and its audit run in a fresh `REQUIRES_NEW` transaction, deliberately: the caller throws `InvalidRefreshTokenException` immediately afterward, which would otherwise roll back the very revocation (and the `AFTER_COMMIT` audit) meant to contain the breach. The audit carries `RefreshTokenReuseContext` (the compromised user + the offending token id).
+1. **No row** for the hash (a garbage or never-issued token): refused.
+2. **The row is revoked:** a replay, so reuse detection (below).
+3. **The row belongs to another account** than the one the token names: refused. Before part 2, such a token got a 200 and a session for the account the token named.
+4. **The row's `expires_at` has passed:** refused.
+5. Otherwise the rotation **inserts and flushes its new row, then revokes the presented row with a conditional update**, `RefreshTokenRepository#revokeIfNotYetRevoked`, which sets `revoked = true` only where `revoked = false`.
+    - **1 row updated:** this presentation won. The new pair is returned.
+    - **0, and the row is gone** (the deploy step deleted it meanwhile): refused, and the new row goes with the rollback.
+    - **0, and the row is still there:** another presentation or a revoke got there first. The rotation deletes its new row and goes through reuse detection.
+
+So of two simultaneous presentations of one token, **exactly one wins**; the other trips reuse detection, which revokes every refresh token of the account, the one the winner just received included. The web app serialises its refreshes across tabs with `navigator.locks` for this reason, and any client must send one refresh at a time. The insert comes first on purpose: its foreign-key check holds the user row before the rotation holds the presented row, the order the phone change's revoke-all takes them in, so a rotation forms no lock cycle with the phone change, any revoke-all or the deploy step's table lock.
+
+**Reuse detection** is the theft countermeasure. A rotated row is marked `revoked`, not deleted (it lingers until the cleanup or its expiry), so replaying an already-rotated token finds its row flagged revoked; and a rotation that lost its conditional revoke is treated the same way. Either way the service revokes every unrevoked refresh token of the row's account (`revokeAllByUser`), emits `AuditAction.REFRESH_TOKEN_REUSE_DETECTED` with `RefreshTokenReuseContext` (the compromised user and the offending token id), and throws `RefreshTokenReuseDetectedException`, a subtype of `InvalidRefreshTokenException`.
+
+**The revoke-all commits in the refresh's own transaction.** `AuthServiceImpl#refreshToken` and `rotateRefreshToken` are both `@Transactional(noRollbackFor = RefreshTokenReuseDetectedException.class)`: the reuse refusal commits, so the revoke-all survives it, and every other refusal rolls back whatever was written before it. Part 2 removed the old `REQUIRES_NEW` transaction, so a refresh holds a single connection and never waits on a second transaction of its own. The reuse audit is published as an event and written by the asynchronous `AFTER_COMPLETION` audit listener in a transaction of its own, so the audit row alone does not prove the revoke-all committed.
+
+**One client message.** Every refusal answers **401 `INVALID_REFRESH_TOKEN`** with the code's default message, "Your session is invalid. Please sign in again.": `InvalidRefreshTokenException#getClientMessage` returns it whichever check failed, and the specific reason stays in `getMessage()`, for the log only. A token holder cannot tell which check refused it.
+
+**Not built yet:** a 30-second grace window for the token a rotation has just replaced, so that a retry after a lost reply is not treated as theft, is decided for the follow-up security PR (the engineering vault, `08 Follow-ups/Security follow-up PR items (pending invite).md`). Until then, any presentation of a rotated token is reuse.
 
 ```mermaid
 flowchart TD
-    A["POST /v1/auth/refresh-token with refresh token"] --> V{"valid + unexpired JWT?"}
-    V -->|"no"| X["401 InvalidRefreshToken"]
-    V -->|"yes"| H["hash token, look up active row"]
-    H --> M{"active row found?"}
-    M -->|"yes, unexpired"| R["revoke old row, insert new row, mint new pair, blacklist old access token"]
-    R --> OK["200 AuthResponse — new access + refresh"]
-    M -->|"yes, expired"| E["revoke row, 401 InvalidRefreshToken"]
-    M -->|"no active row"| P["look up ignoring revoked flag"]
-    P --> Q{"revoked row exists?"}
-    Q -->|"yes — replay of a rotated token"| Z["REQUIRES_NEW: revoke ALL user tokens, audit REFRESH_TOKEN_REUSE_DETECTED"]
-    Q -->|"no — never issued"| Y["401 InvalidRefreshToken"]
-    Z --> Y
+    A["POST /v1/auth/refresh-token with refresh token"] --> V{"parseRefreshToken accepts it?"}
+    V -->|"no"| X["401 INVALID_REFRESH_TOKEN, one message, rolled back"]
+    V -->|"yes"| U{"account found and ACTIVE?"}
+    U -->|"no"| X
+    U -->|"yes"| H["hash token, look up its row"]
+    H --> M{"the row"}
+    M -->|"none, another account's, or expired"| X
+    M -->|"revoked — a replay"| Z["revoke ALL the account's tokens, audit REFRESH_TOKEN_REUSE_DETECTED"]
+    M -->|"unrevoked, the owner's, unexpired"| I["insert and flush the new row"]
+    I --> C{"conditional revoke of the presented row updates 1?"}
+    C -->|"yes"| OK["200 AuthResponse — new access + refresh"]
+    C -->|"0, row deleted"| X
+    C -->|"0, row still there — lost the race"| D["delete the new row"]
+    D --> Z
+    Z --> Y["401 INVALID_REFRESH_TOKEN, one message, committed"]
 ```
 
 On a successful rotate the service also blacklists the old access token for its remaining TTL, refreshes the admin idle key for admin principals, and audits `TOKEN_REFRESH`.
@@ -142,7 +170,7 @@ Each refresh token row *is* a session — one per device/login, carrying `device
 | --- | --- | --- |
 | List sessions | `GET /v1/auth/sessions` | Every non-revoked row for the caller as `SessionResponse`; pass `?currentRefreshToken=` to flag the caller's own row `current = true` |
 | Revoke one session | `DELETE /v1/auth/sessions/{sessionId}` | Revokes that row; `404 SessionNotFound` if it is not the caller's (never leaks another user's session) |
-| Logout (this device) | `POST /v1/auth/logout` | Blacklists the access token; revokes the refresh token if supplied in the body; audits `LOGOUT` |
+| Logout (this device) | `POST /v1/auth/logout` | Blacklists the access token; revokes the refresh token supplied in the body only if it is the caller's own (since part 2, #379: another account's token is left as it is, and the answer is still 200); audits `LOGOUT` for the authenticated user |
 | Logout everywhere | `POST /v1/auth/logout-all` | `revokeAllUserTokens` + blacklists the current access token; audits with scope marker `all_devices` |
 
 `GET /v1/auth/sessions` maps rows through `mapper/auth/RefreshTokenMapper.java`; the `current` flag is computed by hashing the caller-supplied refresh token and comparing to each stored `tokenHash` (passing no token flags every row not-current). `deviceLabel` is presently just an alias of `deviceInfo`.
@@ -159,7 +187,7 @@ Finally, a **password change** (`POST /v1/auth/change-password`, `AuthServiceImp
 
 | Concern | Source |
 | --- | --- |
-| Token minting, claims, HS512 signing, TTL resolution | `security/jwt/JwtProvider.java` |
+| Token minting, claims, HS512 signing, TTL resolution, the one parse per door | `security/jwt/JwtProvider.java` |
 | Signing/verification key map + rotation invariants | `security/jwt/JwtKeyProvider.java` |
 | Key config binding | `security/config/JwtKeyConfig.java`, `security/config/JwtKeyEntry.java` (`app.jwt.*`) |
 | Admin TTL / idle knobs | `security/ratelimit/AdminSessionProperties.java` (`app.security.admin.*`) |
@@ -169,6 +197,8 @@ Finally, a **password change** (`POST /v1/auth/change-password`, `AuthServiceImp
 | 401 on missing/invalid token | `security/jwt/JwtAuthEntryPoint.java` |
 | Access-token blacklist (Redis) | `security/jwt/JwtBlacklistServiceImpl.java` |
 | Refresh rotation, reuse detection, session revocation | `service/auth/RefreshTokenServiceImpl.java` |
+| The conditional revoke and the revoke-all | `repository/user/RefreshTokenRepository.java` (`revokeIfNotYetRevoked`, `revokeAllByUser`) |
+| The refresh refusals and their one client message | `exception/InvalidRefreshTokenException.java`, `exception/RefreshTokenReuseDetectedException.java` |
 | Refresh-token hashing (SHA-256 at rest) | `util/TokenHasher.java` |
 | Blacklist-digest hashing (inline SHA-256) | `security/jwt/JwtBlacklistServiceImpl.java` |
 | Refresh/logout/session endpoints | `controller/auth/AuthController.java` |
