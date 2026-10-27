@@ -58,7 +58,7 @@ What follows from it:
 **Why the rule is written this way.** Before #185, the org chain read a `findActiveByUser` whose query, despite its name, matched `PENDING` as well as `ACTIVE`, and a `PENDING` member resolved to the role's full codes; the platform chain was strictly `ACTIVE`. #185 merged the two tables into one membership row and kept the looser reading for both sides, so a `PENDING` platform invite began to grant its role's full platform authorities: anyone holding the invited phone could get a platform-staff session with an SMS code alone, skipping the invite, the password, the terms and MFA. The security fix *Pending invite sign-in* (its spec is in the engineering vault under that name) put the `ACTIVE` rule back at every grant site and gave each of the two questions its own pair of lookups, so the name of a lookup now says which question it answers.
 
 !!! info "Status"
-    The security fix *Pending invite sign-in*: part 1 merged (#378, 26 Oct 2026), and it is what this section describes; the places part 2 changes are marked as part 2's. Part 2 (#379), the hardening its later reviews found, is ready (26 Oct) on CI, the full suites and the reviews, and not yet merged. Its live verify is no longer a merge gate (the CTO, 26 Oct: no users yet, still in development), but it still runs, and develop is not promoted beyond testing until it has passed.
+    The security fix *Pending invite sign-in*: part 1 merged (#378, 26 Oct 2026), and it is what this section describes; the places part 2 changes are marked as part 2's. Part 2 (#379), the hardening its later reviews found: merged 27 Oct, `581fbf01`; live verify passed 66/66; next: the promotion, then the §2.9 deploy step once per environment.
 
 ### Load-bearing properties
 

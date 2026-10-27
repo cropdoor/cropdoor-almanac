@@ -5,7 +5,7 @@ This page owns the token machinery behind every authenticated CropDoor request: 
 Two facts anchor the rest of the page. First, **authorities are never in the token** — the JWT carries identity and a login-`scope`, and permissions are re-resolved from the database on every single request. Second, **only hashes hit disk** — the raw refresh JWT is returned to the client once and never persisted, and the blacklist stores a SHA-256 digest, not the token. All response payloads below are the `data` field of the `ApiResponse<T>` wrapper.
 
 !!! info "Status"
-    The parsing, the filter, the refresh and the logout below are as the security fix *Pending invite sign-in* part 2 leaves them (#379, ready 26 Oct 2026, not yet merged); the places it changed are marked as part 2's. Develop is not promoted beyond testing until it has merged and passed its live verify.
+    The parsing, the filter, the refresh and the logout below are as the security fix *Pending invite sign-in* part 2 leaves them (#379, merged 27 Oct 2026, `581fbf01`; live verify passed 66/66; next: the promotion, then the §2.9 deploy step once per environment); the places it changed are marked as part 2's.
 
 ## The token pair — `JwtProvider`
 
