@@ -7,7 +7,7 @@ This page has two parts. **[Part A](#part-a-writing-commits-and-pr-titles)** is 
 It covers [`cropdoor/cropdoor-backend`](https://github.com/cropdoor/cropdoor-backend) (private) and [`cropdoor/granary`](https://github.com/cropdoor/granary) (private). The frontend is **not covered yet**: its release work is parked until the CTO reopens it, so nothing on this page applies to `cropdoor-frontend` for now.
 
 !!! info "Status"
-    As of 29 Oct 2026: live on staging as an experiment. The first release candidate, `v1.0.0-rc.1`, was cut on staging's deployed commit `afdaabca` (the merge of #381) after "Analysis of 910 commits complete: major release"; its GitHub pre-release carries the whole history's notes. A "Re-run job" on that release job made no second tag, as designed. The experiment stands at **1 of 5** release candidates toward the CTO's exit review, which judges it before launch. The PR-title check and squash-only merges hold on the backend and on granary from 29 Oct. Granary is at `1.0.0`. Nothing reaches production until the official launch, whose release is `v1.0.0`. The frontend is parked.
+    As of 29 Oct 2026: live on staging as an experiment. The first release candidate, `v1.0.0-rc.1`, was cut on staging's deployed commit `afdaabca` (the merge of #381) after "Analysis of 910 commits complete: major release"; its GitHub pre-release carries the whole history's notes. A "Re-run job" on that release job made no second tag, as designed. The experiment stands at **1 of 5** release candidates toward the CTO's exit review, which judges it before launch. The PR-title check, squash-only merges and a blank squash body hold on the backend and on granary from 29 Oct. Granary is at `1.0.0`. Nothing reaches production until the official launch, whose release is `v1.0.0`. The frontend is parked.
 
 ---
 
@@ -15,9 +15,9 @@ It covers [`cropdoor/cropdoor-backend`](https://github.com/cropdoor/cropdoor-bac
 
 ### Squash-only: the PR title is the commit
 
-Both repos merge **by squash only**; merge commits and rebase merges are switched off. The squash commit's **title is the PR title** (GitHub appends the PR number, as in `… (#381)`), and its **body is the PR's commit messages**.
+Both repos merge **by squash only**; merge commits and rebase merges are switched off. The squash commit's **title is the PR title** (GitHub appends the PR number, as in `… (#381)`), and its **body is blank**: since 29 Oct both repos leave it empty, apart from the `Co-authored-by:` lines GitHub adds when a PR has more than one author. So the PR title is the whole commit message.
 
-So the title of your PR is what counts. The individual commit messages on your branch are not checked and never become titles. They do land in the squash body, which matters for one case: a line that starts with "breaking change" (see [the warning below](#what-each-type-does-to-the-version)).
+So the title of your PR is what counts. The individual commit messages on your branch are not checked, and they never reach the release tooling: the squash commit keeps none of them (the PR still shows them). Whoever merges leaves the title and body exactly as GitHub fills them (see [the warning below](#what-each-type-does-to-the-version)).
 
 ### The PR-title check
 
@@ -66,19 +66,19 @@ The check reads only the PR title. It does not look at your branch's commits or 
 
 ### What each type does to the version
 
-Each squash commit is analyzed by its title, plus any breaking-change line in its body. A release takes the biggest bump among its commits.
+Each squash commit is analyzed by its title. Its body is read too, but it carries nothing unless someone types into it when merging (see the warning below). A release takes the biggest bump among its commits.
 
 | Commit | Bump | From `v1.4.2` |
 | --- | --- | --- |
-| A breaking change: `!` in the title (`feat!:`, `fix(auth)!:`), or a line in the message that starts with `BREAKING CHANGE` or `BREAKING-CHANGE` (see the warning below) | major | `v2.0.0` |
+| A breaking change: `!` in the title (`feat!:`, `fix(auth)!:`). A body line starting with `BREAKING CHANGE` or `BREAKING-CHANGE` counts too, but only by accident now (see the warning below) | major | `v2.0.0` |
 | `feat` | minor | `v1.5.0` |
 | `fix`, `perf`, `revert` | patch | `v1.4.3` |
 | `refactor`, `docs`, `test`, `build`, `ci`, `chore`, `style` | no release | `v1.4.2` stays |
 
 The release notes have four sections, **Features**, **Bug Fixes**, **Performance** and **Reverts**, plus a **BREAKING CHANGES** section when there is one. The other types are left out of the notes, except a breaking commit of one of them, which appears under its own lower-case type heading (for example `refactor`). A `Release-As:` footer does not set the version.
 
-!!! warning "Any line in a squashed PR that starts with “breaking change” makes a major"
-    The check sees only the title, but the analyzer reads the whole squash message, and the squash body carries **every commit message in the PR**. Any line in that body that **starts** with "breaking change" or "breaking-change", in **any case**, with or without a colon, even after a `*` bullet, makes a **major** release after launch, even under a `fix:` title. So "Breaking change avoided by keeping the old field" and "* Breaking change: none" in a commit message both count. The same words in the middle of a line do not. After launch, start a line that way only for a real breaking change, and prefer marking it with `!` in the PR title, where reviewers see it. Whether the squash body keeps the commit messages at all is an [open decision for launch](#what-happens-at-launch).
+!!! warning "Merge without editing the squash commit"
+    The check sees only the PR title, but the analyzer reads the whole squash message. Since 29 Oct the squash body is **blank** in both repos (apart from any `Co-authored-by:` lines), so your branch's commit messages never reach it, and a breaking change is marked only by `!` in the PR title, where the check and reviewers see it. So leave the title and body exactly as GitHub fills them: an edit in the merge dialog, or `gh pr merge --subject`, `--body` or `--body-file`, lands unchecked. A typed body line that **starts** with "breaking change" or "breaking-change", in **any case**, followed by a colon or a space, even after a `*` bullet, makes a **major** release: in the backend after launch, in granary at once. "* Breaking change: none" is enough.
 
 **Before launch the bump does not show yet.** Until production's first release, every staging version is `1.0.0-rc.N`, whatever the types: a `feat`, a `fix` and a `!` all give the next `rc`. Only types that release anything cut a candidate, so a staging promotion of nothing but `refactor` and `test` commits gets no new `rc`. The bump rules decide real version numbers from the launch on.
 
@@ -109,9 +109,9 @@ Write the subject as a short statement of what the change does, in the words of 
 
 GitHub's **Revert** button opens a PR titled `Revert "feat(orders): …"`, which the check refuses. Rename it `revert: feat(orders): …` and merge it as usual. The squashed `revert:` commit gives a **patch** and is listed under **Reverts** in the notes.
 
-**Undoing a change that released nothing keeps that change's type.** A `revert:` title gives a patch, so reverting a `refactor`, `test`, `docs`, `build`, `ci`, `chore` or `style` change under it would cut a version in which nothing a user or client can see has changed. Title it by the original's type **with no scope**, as in `ci: revert "ci(release): run after staging"` or `build: revert "build(deps): bump …"`: it releases nothing, even with GitHub's "This reverts commit …" line in the squash body. The scope stays off because the analyzer reads a scope up to the last `)`, so `refactor(api): revert "refactor(api)!: …"` takes the quoted `!` as its own and makes a major. An original with `!` released a major, so its revert is `revert:`. An original with no type, from before the check, takes the type it would have today.
+**Undoing a change that released nothing keeps that change's type.** A `revert:` title gives a patch, so reverting a `refactor`, `test`, `docs`, `build`, `ci`, `chore` or `style` change under it would cut a version in which nothing a user or client can see has changed. Title it by the original's type **with no scope**, as in `ci: revert "ci(release): run after staging"` or `build: revert "build(deps): bump …"`: it releases nothing. The scope stays off because the analyzer reads a scope up to the last `)`, so `refactor(api): revert "refactor(api)!: …"` takes the quoted `!` as its own and makes a major. An original with `!` released a major, so its revert is `revert:`. An original with no type, from before the check, takes the type it would have today.
 
-One subtlety: if the reverted commit and its squashed revert land in the **same** release, they do not cancel out. The two headers name different PR numbers, so the original `feat` still counts (a minor) and both are listed.
+One subtlety: if the reverted commit and its squashed revert land in the **same** release, they do not cancel out. The squashed revert carries no "This reverts commit …" line, so the analyzer does not pair it with the original: the original `feat` still counts (a minor) and both are listed.
 
 ---
 
@@ -211,7 +211,6 @@ The CTO judges the experiment before launch, against nine exit criteria: at leas
   - Dependabot gets an entry for `release/`.
 - **Production is realigned.** Production holds commits staging does not, so the first production promotion uses `promote.yml`'s `force` option to put production onto staging's history.
 - **`v1.0.0`.** `Deploy (production)` runs, then `Release (production)` waits for production's `/actuator/info` to report the launch commit and cuts `v1.0.0` on it: a full Release, marked Latest, with the whole history's notes (cut by the guard if they pass 120,000 characters). `rc` tags are ignored. From then on `fix` gives `v1.0.1`, `feat` `v1.1.0`, and `!` `v2.0.0`.
-- **An open decision: the squash commit's body.** Because the body carries the PR's commit messages, any line in them that starts with "breaking change" (in any case, [as above](#what-each-type-does-to-the-version)) makes a major after launch. The CTO decides before the switch between keeping the commit messages (today), a **blank** body (engineering's recommendation: the checked title is the only input, and breaking changes are marked with `!` where reviewers see them), and the PR description.
 - **Not on this page:** production's own launch-day deploy steps, such as the migration checks and any per-environment step a feature carries.
 
 The launch rehearsal (granary's `rehearse.js`, against a mirror of the backend) runs once the launch date is set, to see the version and notes length before they happen.
