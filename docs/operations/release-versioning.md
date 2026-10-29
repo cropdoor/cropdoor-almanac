@@ -41,7 +41,7 @@ A title has the shape *type*, an optional *(scope)*, an optional `!`, a colon an
 | `feat` | A new capability: a new endpoint, a new flow, a new behavior users or clients can see |
 | `fix` | A correction: behavior that was wrong, including security fixes |
 | `perf` | A change whose point is speed or resource use, with behavior unchanged |
-| `revert` | Undoing an earlier change (see [Reverts](#reverts)) |
+| `revert` | Undoing an earlier `feat`, `fix`, `perf`, `revert` or `!` change (see [Reverts](#reverts)) |
 | `refactor` | Restructuring code without changing what it does |
 | `docs` | Documentation only |
 | `test` | Adding or correcting tests only |
@@ -58,7 +58,7 @@ What the check **refuses**:
 | --- | --- |
 | `check that PR titles are conventional` | No type |
 | `feature: check PR titles` | Unknown type: `feature` is not one of the eleven |
-| `Revert "ci: check PR titles"` | GitHub's default revert title has no type. Rename it `revert: …` |
+| `Revert "ci: check PR titles"` | GitHub's default revert title has no type. Rename it as [Reverts](#reverts) says: here `ci: revert …` |
 | `fix: ` | Empty subject |
 | `FEAT: add a basket` | Types are matched in lower case only |
 
@@ -108,6 +108,8 @@ Write the subject as a short statement of what the change does, in the words of 
 ### Reverts
 
 GitHub's **Revert** button opens a PR titled `Revert "feat(orders): …"`, which the check refuses. Rename it `revert: feat(orders): …` and merge it as usual. The squashed `revert:` commit gives a **patch** and is listed under **Reverts** in the notes.
+
+**Undoing a change that released nothing keeps that change's type.** A `revert:` title gives a patch, so reverting a `refactor`, `test`, `docs`, `build`, `ci`, `chore` or `style` change under it would cut a version in which nothing a user or client can see has changed. Title it by the original's type **with no scope**, as in `ci: revert "ci(release): run after staging"` or `build: revert "build(deps): bump …"`: it releases nothing, even with GitHub's "This reverts commit …" line in the squash body. The scope stays off because the analyzer reads a scope up to the last `)`, so `refactor(api): revert "refactor(api)!: …"` takes the quoted `!` as its own and makes a major. An original with `!` released a major, so its revert is `revert:`. An original with no type, from before the check, takes the type it would have today.
 
 One subtlety: if the reverted commit and its squashed revert land in the **same** release, they do not cancel out. The two headers name different PR numbers, so the original `feat` still counts (a minor) and both are listed.
 
