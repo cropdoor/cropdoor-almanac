@@ -165,5 +165,6 @@ nav:
       - How a message gets out (the industry, and what we chose): notifications/how-a-message-gets-out.md
   - Operations:
       - Overview: operations/index.md
+      - Release versioning & commit conventions: operations/release-versioning.md
   - Contributing:
       - Overview: contributing/index.md

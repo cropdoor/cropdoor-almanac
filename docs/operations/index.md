@@ -4,13 +4,17 @@ Running CropDoor — locally, in CI, and across the four environments.
 
 The promotion flow is `develop` → `testing` (`nursery`) → `staging` (`field`) → `production`. Every environment is a Docker image built by GitHub Actions and deployed via Dokploy.
 
+## Pages
+
+- **[Release versioning & commit conventions](release-versioning.md)** — the PR-title check and what each commit type does to the version (for everyone committing), then the release job, `@cropdoor/granary`, access, failures and the launch switch (for maintainers).
+
 ## Planned pages
 
 - **Local development** — Java 21, Docker + Compose, the Maven wrapper, the Makefile entry points, install-hooks script.
 - **Environment variables** — the full inventory: DB, Redis, JWT, Resend, Arkesel, Google OAuth, S3 + CDN, bootstrap admin seed, MFA, rate limit thresholds.
 - **Configuration profiles** — `application.properties`, `application-test.properties`, profile-specific overrides, the `spring.flyway.placeholders.*` rule (Flyway scans the entire file for `${...}`).
 - **CI pipeline** — `ci.yml` (spotless + verify, Postgres + Redis service containers).
-- **Deploy pipeline** — `deploy.yml`, the four-branch model, why `testing` skips the verify gate.
+- **Deploy pipeline** — `deploy.yml`, the four-branch model, why `testing` skips the verify gate. (Its `release` job is covered in [Release versioning](release-versioning.md).)
 - **Observability** — `MetricsService`, the audit-emission failure counter, correlation IDs in logs, planned dashboards.
 - **Operational runbooks** — db backup/restore, super-admin seeding, secret rotation (JWT, webhook), bootstrapping the unverified-user purge cron.
 - **Test data** — the shared testing-env personas and how the `TEST_SEED_REFRESHED` endpoint works.

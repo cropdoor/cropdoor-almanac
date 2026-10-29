@@ -2,6 +2,8 @@
 
 How to write or update an almanac page.
 
+Committing to `cropdoor-backend` or `granary` rather than the almanac? The PR-title rules and what each commit type does to the version are in [Release versioning & commit conventions](../operations/release-versioning.md).
+
 The almanac is markdown. Add a file under `docs/<section>/`, link it from the section's `index.md` (and from `mkdocs.yml` `nav` if it's a top-level entry), then `mkdocs serve` locally and check the rendered output before opening a PR.
 
 ## Conventions
