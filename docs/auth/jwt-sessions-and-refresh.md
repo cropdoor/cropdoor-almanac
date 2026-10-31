@@ -112,70 +112,93 @@ The admin idle-session gate — the `admin-idle:<userId>` Redis key and its slid
 
 `security/jwt/JwtBlacklistServiceImpl.java` is a Redis-backed deny-list used to kill an access token before its natural `exp`. It stores the SHA-256 hex digest of the token under `jwt:blacklist:<digest>` with a TTL equal to the token's **remaining** lifetime — so the entry self-expires exactly when the token would have anyway, and Redis never accumulates dead keys. A zero-or-negative remaining TTL is a no-op. `blacklist` increments a metric via `MetricsService#countJwtBlacklist`. `JwtAuthFilter` calls `isBlacklisted` on every request. Blacklisting happens on logout and on refresh (the outgoing access token is blacklisted), both covered below.
 
-## Refresh rotation & reuse detection — `RefreshTokenService`
+## Refresh rotation, the grace window & reuse detection — `RefreshTokenService`
 
 `POST /v1/auth/refresh-token` (`AuthController#refreshToken` → `AuthServiceImpl#refreshToken`) exchanges a refresh token for a brand-new access **and** refresh token pair. The endpoint is unauthenticated (the refresh token is the credential), and the caller may pass the old — even expired — access token in the `Authorization` header so it can be blacklisted on the way out. The `RefreshTokenRequest` body carries the refresh token itself.
 
-The service accepts the token through `JwtProvider#parseRefreshToken`, loads the principal by its `sub` through `CustomUserDetailsService` and refuses an account that is not ACTIVE, mints the new pair (re-resolving the login context so a context change is picked up), then hands the rotation to `RefreshTokenServiceImpl#rotateRefreshToken`, with the principal's user as the owner the stored row must belong to. Refresh tokens are **one-time-use**. Raw tokens are never stored — `service/auth/RefreshTokenServiceImpl.java` hashes every token with `util/TokenHasher.java` (SHA-256) and matches on the hash.
+The service accepts the token through `JwtProvider#parseRefreshToken`, loads the principal by its `sub` through `CustomUserDetailsService` and refuses an account that is not ACTIVE, mints the new pair (re-resolving the login context so a context change is picked up), then hands the rotation to `RefreshTokenServiceImpl#rotateRefreshToken`, with the principal's user as the owner the stored row must belong to. Raw tokens are never stored — `service/auth/RefreshTokenServiceImpl.java` hashes every token with `util/TokenHasher.java` (SHA-256) and matches on the hash.
 
-### The rotation: insert, then a conditional revoke
+This section describes the token chain as rebuilt by the security follow-up (#386, migration V173, 31 Oct 2026).
 
-Since part 2 (#379), `rotateRefreshToken` takes no lock at the read, and decides each presentation in this order:
+### One lock per account
 
-1. **No row** for the hash (a garbage or never-issued token): refused.
-2. **The row is revoked:** a replay, so reuse detection (below).
-3. **The row belongs to another account** than the one the token names: refused. Before part 2, such a token got a 200 and a session for the account the token named.
-4. **The row's `expires_at` has passed:** refused.
-5. Otherwise the rotation **inserts and flushes its new row, then revokes the presented row with a conditional update**, `RefreshTokenRepository#revokeIfNotYetRevoked`, which sets `revoked = true` only where `revoked = false`.
-    - **1 row updated:** this presentation won. The new pair is returned.
-    - **0, and the row is gone** (the deploy step deleted it meanwhile): refused, and the new row goes with the rollback.
-    - **0, and the row is still there:** another presentation or a revoke got there first. The rotation deletes its new row and goes through reuse detection.
+Every writer of an account's refresh tokens takes the **account's row first** (`UserRepository#findByIdForUpdate`, a `FOR NO KEY UPDATE` locking query), and only then reads the clock and any token row: a rotation, a logout, a session revoke, and every revoke-all (`revokeAllUserTokens`, called by the password change and reset, both invite accepts, an Admin/Ops suspend, logout-all and the phone change). So the writers of one account queue behind each other, and a revoke-all can no longer miss a token that a rotation commits while it runs. Logins are not held up: their insert takes only a key-share lock, which does not conflict. A rotation whose account has gone is refused.
 
-So of two simultaneous presentations of one token, **exactly one wins**; the other trips reuse detection, which revokes every refresh token of the account, the one the winner just received included. The web app serialises its refreshes across tabs with `navigator.locks` for this reason, and any client must send one refresh at a time. The insert comes first on purpose: its foreign-key check holds the user row before the rotation holds the presented row, the order the phone change's revoke-all takes them in, so a rotation forms no lock cycle with the phone change, any revoke-all or the deploy step's table lock.
+### Why a row was revoked (V173)
 
-**Reuse detection** is the theft countermeasure. A rotated row is marked `revoked`, not deleted (it lingers until the cleanup or its expiry), so replaying an already-rotated token finds its row flagged revoked; and a rotation that lost its conditional revoke is treated the same way. Either way the service revokes every unrevoked refresh token of the row's account (`revokeAllByUser`), emits `AuditAction.REFRESH_TOKEN_REUSE_DETECTED` with `RefreshTokenReuseContext` (the compromised user and the offending token id), and throws `RefreshTokenReuseDetectedException`, a subtype of `InvalidRefreshTokenException`.
+A refresh token row is never deleted when it stops being usable; it is marked revoked and lingers until the cleanup or its expiry. Since V173 it also records **when and why**: `revoked_at`, `revoked_reason`, and, for a row a newer row replaced, `replaced_by`.
 
-**The revoke-all commits in the refresh's own transaction.** `AuthServiceImpl#refreshToken` and `rotateRefreshToken` are both `@Transactional(noRollbackFor = RefreshTokenReuseDetectedException.class)`: the reuse refusal commits, so the revoke-all survives it, and every other refusal rolls back whatever was written before it. Part 2 removed the old `REQUIRES_NEW` transaction, so a refresh holds a single connection and never waits on a second transaction of its own. The reuse audit is published as an event and written by the asynchronous `AFTER_COMPLETION` audit listener in a transaction of its own, so the audit row alone does not prove the revoke-all committed.
+| `revoked_reason` | Meaning | `replaced_by` |
+| --- | --- | --- |
+| `ROTATED` | an ordinary refresh replaced it | the new row |
+| `SUPERSEDED` | a grace exchange replaced the token its client never received | the new row |
+| `SIGNED_OUT` | a logout or a session revoke ended it | — |
+| `ALL_REVOKED` | a revoke-all ended it (password change, logout-all, suspend…) | — |
+| `REUSE_DETECTED` | the theft alarm ended it | — |
+| none | revoked before V173, or by an older build | — |
 
-**One client message.** Every refusal answers **401 `INVALID_REFRESH_TOKEN`** with the code's default message, "Your session is invalid. Please sign in again.": `InvalidRefreshTokenException#getClientMessage` returns it whichever check failed, and the specific reason stays in `getMessage()`, for the log only. A token holder cannot tell which check refused it.
+Five named checks keep the columns consistent with the `revoked` flag (a live row has no reason; a reason comes with its time; only a rotation or a grace exchange names a successor; no row names itself), and rows revoked before V173 stay valid. A **session** is therefore a chain: the rows of one sign-in linked by `replaced_by`, ending at its one live token.
 
-**Not built yet:** a 30-second grace window for the token a rotation has just replaced, so that a retry after a lost reply is not treated as theft, is decided for the follow-up security PR (the engineering vault, `08 Follow-ups/Security follow-up PR items (pending invite).md`). Until then, any presentation of a rotated token is reuse.
+### The rotation, in order
+
+1. **The account's lock.** No account: refused.
+2. **No row** for the hash (garbage or never issued): refused.
+3. **Another account's row:** refused.
+4. **The row is revoked:** decided by its reason —
+    - `ROTATED`: if it was rotated **within 30 seconds** and the row that replaced it is still the session's live token, a **grace exchange** (below); otherwise the theft alarm, or a plain refusal (below).
+    - `SUPERSEDED`: the theft alarm, or a plain refusal.
+    - `SIGNED_OUT`, `ALL_REVOKED`, `REUSE_DETECTED` or no reason: a plain refusal that writes nothing.
+5. **The row has expired:** refused.
+6. Otherwise the rotation **inserts its new row, then revokes the presented row** as `ROTATED`, naming the new row, with a conditional update (`RefreshTokenRepository#revokeIfNotYetRevoked`). If that updates nothing, the row was deleted meanwhile (the deploy step), and the refresh is refused.
+
+### The grace window (30 seconds)
+
+A refresh whose reply is lost on a weak signal leaves the client holding the old token. Presenting the token a rotation **just** replaced, within 30 seconds of that rotation, gets a fresh token instead of the theft alarm. The replacement its client never received is revoked as `SUPERSEDED`, naming the new row, and the exchange is audited as `REFRESH_TOKEN_GRACE_EXCHANGE` (the presented, superseded and new row ids), written only if the exchange commits. Only the token the rotation replaced qualifies, and only while its replacement is the session's live token; an older token, or any after 30 seconds, is handled as a replay. The window is `RefreshTokenService#GRACE_WINDOW`, measured either way so that a small clock skew between server instances cannot shrink it.
+
+Two consequences: two simultaneous refreshes of one token now **both answer 200** (the second is a grace exchange), and a client that keeps the earlier answer's token holds a superseded token. The web app refreshes one at a time across tabs (`navigator.locks`), and cropdoor-frontend#308 gives its refresh a ~10 s timeout and one immediate retry, so that a lost reply's retry lands inside the window. A thief who uses the window supersedes the owner's new token, so the owner's next refresh raises the alarm.
+
+### The theft alarm (reuse detection)
+
+A replayed `ROTATED` or `SUPERSEDED` token raises the alarm **only while its session still has a live token**, found by one recursive query (`RefreshTokenRepository#findLiveEndOf`) that follows `replaced_by` from the presented row, with a guard against loops. The alarm revokes every token of the account as `REUSE_DETECTED`, emits `AuditAction.REFRESH_TOKEN_REUSE_DETECTED` with `RefreshTokenReuseContext`, and throws `RefreshTokenReuseDetectedException`, a subtype of `InvalidRefreshTokenException`. If the session has no live token — the alarm already fired, or the session was signed out — the replay gets a plain refusal that writes nothing, so a thief replaying a dead token cannot keep signing the owner out. The alarm leaves access tokens valid until they expire (15 minutes, 5 for staff), a known limitation recorded as a follow-up.
+
+**The revoke-all commits.** `AuthServiceImpl#refreshToken`, `rotateRefreshToken`, `AuthServiceImpl#logout` and `revokeToken` are `@Transactional(noRollbackFor = RefreshTokenReuseDetectedException.class)`: the alarm's refusal commits, so its revoke-all survives it, and every other refusal rolls back whatever was written before it. Any future transactional caller of `revokeToken` must do the same. The audits are published as events and written by the asynchronous `AFTER_COMPLETION` audit listener (the grace exchange only on commit).
+
+**One client message.** Every refusal answers **401 `INVALID_REFRESH_TOKEN`** with the code's default message, "Your session is invalid. Please sign in again.": `InvalidRefreshTokenException#getClientMessage` returns it whichever check failed, and the specific reason ("Refresh token revoked", "Refresh token replayed after its session ended", "Rotated or superseded refresh token replayed", "Superseded refresh token presented at logout"…) stays in the server's log. A token holder cannot tell which check refused it.
 
 ```mermaid
 flowchart TD
-    A["POST /v1/auth/refresh-token with refresh token"] --> V{"parseRefreshToken accepts it?"}
-    V -->|"no"| X["401 INVALID_REFRESH_TOKEN, one message, rolled back"]
-    V -->|"yes"| U{"account found and ACTIVE?"}
-    U -->|"no"| X
-    U -->|"yes"| H["hash token, look up its row"]
-    H --> M{"the row"}
+    A["POST /v1/auth/refresh-token"] --> V{"parseRefreshToken accepts it, account ACTIVE?"}
+    V -->|"no"| X["401 INVALID_REFRESH_TOKEN, rolled back"]
+    V -->|"yes"| L["lock the account's row"]
+    L --> M{"the presented row"}
     M -->|"none, another account's, or expired"| X
-    M -->|"revoked — a replay"| Z["revoke ALL the account's tokens, audit REFRESH_TOKEN_REUSE_DETECTED"]
-    M -->|"unrevoked, the owner's, unexpired"| I["insert and flush the new row"]
-    I --> C{"conditional revoke of the presented row updates 1?"}
-    C -->|"yes"| OK["200 AuthResponse — new access + refresh"]
-    C -->|"0, row deleted"| X
-    C -->|"0, row still there — lost the race"| D["delete the new row"]
-    D --> Z
-    Z --> Y["401 INVALID_REFRESH_TOKEN, one message, committed"]
+    M -->|"live"| R["insert the new row; revoke the presented one ROTATED"]
+    R --> OK["200 — new access + refresh"]
+    M -->|"ROTATED within 30 s, its replacement still live"| G["grace exchange: new row; the replacement SUPERSEDED; audit"]
+    G --> OK
+    M -->|"ROTATED otherwise, or SUPERSEDED"| E{"does the session still have a live token?"}
+    E -->|"no"| P["401, nothing written"]
+    E -->|"yes"| Z["revoke ALL the account's tokens REUSE_DETECTED; audit"]
+    Z --> Y["401 INVALID_REFRESH_TOKEN, committed"]
+    M -->|"SIGNED_OUT, ALL_REVOKED, REUSE_DETECTED, or no reason"| P
 ```
 
-On a successful rotate the service also blacklists the old access token for its remaining TTL, refreshes the admin idle key for admin principals, and audits `TOKEN_REFRESH`.
+On a successful rotation the service also blacklists the old access token for its remaining TTL, refreshes the admin idle key for admin principals, and audits `TOKEN_REFRESH`.
 
 ## Sessions & logout
 
-Each refresh token row *is* a session — one per device/login, carrying `deviceInfo`, `ipAddress`, `lastUsedAt`, and its `revoked` flag (`model/user/RefreshToken.java`, table `refresh_tokens`).
+Each sign-in is a **session**: a chain of refresh token rows linked by `replaced_by`, ending at its one live token, which carries `deviceInfo`, `ipAddress` and `lastUsedAt` (`model/user/RefreshToken.java`, table `refresh_tokens`). Ending a session means revoking its live token.
 
 | Operation | Endpoint | Effect |
 | --- | --- | --- |
-| List sessions | `GET /v1/auth/sessions` | Every non-revoked row for the caller as `SessionResponse`; pass `?currentRefreshToken=` to flag the caller's own row `current = true` |
-| Revoke one session | `DELETE /v1/auth/sessions/{sessionId}` | Revokes that row; `404 SessionNotFound` if it is not the caller's (never leaks another user's session) |
-| Logout (this device) | `POST /v1/auth/logout` | Blacklists the access token; revokes the refresh token supplied in the body only if it is the caller's own (since part 2, #379: another account's token is left as it is, and the answer is still 200); audits `LOGOUT` for the authenticated user |
-| Logout everywhere | `POST /v1/auth/logout-all` | `revokeAllUserTokens` + blacklists the current access token; audits with scope marker `all_devices` |
+| List sessions | `GET /v1/auth/sessions` | Every live (non-revoked) row for the caller as `SessionResponse`; pass `?currentRefreshToken=` to flag the caller's own row `current = true` |
+| Revoke one session | `DELETE /v1/auth/sessions/{sessionId}` | Ends that session: if the row named has since been rotated, follows the session to its live token and revokes that (`SIGNED_OUT`); `404 SessionNotFound` if it is not the caller's (never leaks another user's session) |
+| Logout (this device) | `POST /v1/auth/logout` | Blacklists the access token; ends the session of the refresh token in the body, only if it is the caller's own (a live token is revoked, a rotated one is followed to its live token); audits `LOGOUT`. **A superseded token whose session is still live raises the theft alarm**: every token of the account is revoked, the answer is 401 `INVALID_REFRESH_TOKEN`, and the access token is still blacklisted and `LOGOUT` still audited |
+| Logout everywhere | `POST /v1/auth/logout-all` | `revokeAllUserTokens` (every token `ALL_REVOKED`) + blacklists the current access token; audits with scope marker `all_devices` |
 
 `GET /v1/auth/sessions` maps rows through `mapper/auth/RefreshTokenMapper.java`; the `current` flag is computed by hashing the caller-supplied refresh token and comparing to each stored `tokenHash` (passing no token flags every row not-current). `deviceLabel` is presently just an alias of `deviceInfo`.
 
-The two logout endpoints are distinct routes, not one endpoint with a `scope` parameter — `all_devices` is only an internal audit-scope marker on `LogoutScopeContext`, surfaced through the emitter, not a request field. `logout` tolerates a missing refresh token (it still blacklists the access token); `logout-all` needs no body.
+The two logout endpoints are distinct routes, not one endpoint with a `scope` parameter — `all_devices` is only an internal audit-scope marker on `LogoutScopeContext`, surfaced through the emitter, not a request field. `logout` tolerates a missing refresh token (it still blacklists the access token); `logout-all` needs no body. The web app's sign-out clears its session whatever the answer, so logout's new 401 needs no client change.
 
 Finally, a **password change** (`POST /v1/auth/change-password`, `AuthServiceImpl#changePassword`) verifies the current password, re-hashes the new one, and calls `revokeAllUserTokens` — every session dies and the user must log in again. Password *reset* (forgot-password flow) does the same. Those flows are detailed in [OTP & password recovery](otp-and-password-recovery.md).
 
@@ -196,8 +219,10 @@ Finally, a **password change** (`POST /v1/auth/change-password`, `AuthServiceImp
 | Filter ordering, stateless policy, entry point wiring | `security/config/SecurityConfig.java` |
 | 401 on missing/invalid token | `security/jwt/JwtAuthEntryPoint.java` |
 | Access-token blacklist (Redis) | `security/jwt/JwtBlacklistServiceImpl.java` |
-| Refresh rotation, reuse detection, session revocation | `service/auth/RefreshTokenServiceImpl.java` |
-| The conditional revoke and the revoke-all | `repository/user/RefreshTokenRepository.java` (`revokeIfNotYetRevoked`, `revokeAllByUser`) |
+| Refresh rotation, the grace window, reuse detection, session revocation | `service/auth/RefreshTokenServiceImpl.java` (the window: `RefreshTokenService#GRACE_WINDOW`) |
+| The conditional revoke, the revoke-all and a session's live token | `repository/user/RefreshTokenRepository.java` (`revokeIfNotYetRevoked`, `revokeAllByUser`, `findLiveEndOf`) |
+| The account lock every token writer takes | `repository/user/UserRepository.java` (`findByIdForUpdate`) |
+| Why a row was revoked: `revoked_at`, `revoked_reason`, `replaced_by` and their checks | `db/migration/V173__refresh_token_revocation.sql`; the reasons are `RefreshToken.RevokedReason` |
 | The refresh refusals and their one client message | `exception/InvalidRefreshTokenException.java`, `exception/RefreshTokenReuseDetectedException.java` |
 | Refresh-token hashing (SHA-256 at rest) | `util/TokenHasher.java` |
 | Blacklist-digest hashing (inline SHA-256) | `security/jwt/JwtBlacklistServiceImpl.java` |
@@ -205,7 +230,7 @@ Finally, a **password change** (`POST /v1/auth/change-password`, `AuthServiceImp
 | Session + refresh DTOs | `dto/auth/response/SessionResponse.java`, `dto/auth/request/RefreshTokenRequest.java` |
 | Session mapping | `mapper/auth/RefreshTokenMapper.java` |
 | Refresh-token entity + table | `model/user/RefreshToken.java` (`refresh_tokens`) |
-| Reuse audit context | `service/platform/audit/context/RefreshTokenReuseContext.java` |
+| Reuse audit context; the grace exchange audit | `service/platform/audit/context/RefreshTokenReuseContext.java`; `AuditEmitter#refreshTokenGraceExchanged` (`REFRESH_TOKEN_GRACE_EXCHANGE`) |
 | Password bcrypt encoder bean | `security/config/CryptoConfig.java` |
 
 ## See also
@@ -215,4 +240,4 @@ Finally, a **password change** (`POST /v1/auth/change-password`, `AuthServiceImp
 - [Admin login and MFA](admin-login-and-mfa.md) — the admin-specific TTLs and the idle-session gate.
 - [OAuth](oauth.md) — the one-time-code exchange that ends in the same token pair.
 - [RBAC authorization](../rbac/authorization.md) — how per-request authorities are resolved and gated.
-- [Audit](../audit/index.md) — where `LOGOUT`, `TOKEN_REFRESH`, and `REFRESH_TOKEN_REUSE_DETECTED` land.
+- [Audit](../audit/index.md) — where `LOGOUT`, `TOKEN_REFRESH`, `REFRESH_TOKEN_GRACE_EXCHANGE` and `REFRESH_TOKEN_REUSE_DETECTED` land.
