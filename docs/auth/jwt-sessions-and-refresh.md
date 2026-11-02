@@ -20,7 +20,7 @@ Two facts anchor the rest of the page. First, **authorities are never in the tok
 | `userId` | yes | yes | The `users` row id |
 | `email` | yes | no | Same value as `sub` (email-or-phone); named `email` for historical reasons |
 | `type` | no | `"refresh"` | Marks the refresh token; each door checks it (see the parsing below): the refresh door accepts only `"refresh"`, the access door refuses it |
-| `scope` | yes | yes | The `LoginContextType` name, e.g. `PLATFORM_ADMIN`, `FARM_MEMBER`, `BUYER_MEMBER`, `DORMANT` |
+| `scope` | yes | yes | The `LoginContextType` name, e.g. `PLATFORM_STAFF`, `FARM_MEMBER`, `BUYER_MEMBER`, `DORMANT` |
 | `ownerId` / `ownerType` | org contexts only | org contexts only | The owning farm/buyer org for member contexts |
 
 There are **no role or permission claims**. `JwtProvider#generateToken` documents this deliberately: embedding authorities would leak permission codes in any captured token, bloat the token, and go stale the instant a role is edited. Authorization is instead rebuilt per request (next section) and is the canonical topic of [RBAC authorization](../rbac/authorization.md).
@@ -38,14 +38,16 @@ A token that does not verify or has the wrong shape comes back empty, a claim of
 
 ### Token lifetimes
 
-TTLs are role-aware. Non-admins use the platform defaults bound under `app.jwt.*` on `JwtKeyConfig`; admins use the tighter `app.security.admin.*` values on `AdminSessionProperties`, which `JwtProvider` reads directly as the authoritative source for admin token lifetimes.
+TTLs are role-aware. Platform staff use the tighter `app.security.admin.*` values on `AdminSessionProperties`, which `JwtProvider` reads directly as the authoritative source for staff token lifetimes; everyone else uses the platform defaults bound under `app.jwt.*` on `JwtKeyConfig`. Platform staff means the `PLATFORM_STAFF` login context or the `ROLE_PLATFORM_STAFF` authority: anyone with a platform membership, so Delivery Agents and Field Agents as well as Admin/Ops.
 
 | Principal | Access TTL | Refresh TTL | Source |
 | --- | --- | --- | --- |
-| Non-admin (`FARMER` / `BUYER` / `STAFF`) | 15 min (`900000` ms) | 7 days (`604800000` ms) | `JwtKeyConfig` (`app.jwt.expiration-ms`, `app.jwt.refresh-expiration-ms`) |
-| Admin (`UserType.ADMIN`) | 5 min (`300000` ms) | 1 day (`86400000` ms) | `AdminSessionProperties` (`app.security.admin.access-ttl-ms`, `app.security.admin.refresh-ttl-ms`) |
+| Everyone else (farm and buyer members, and dormant accounts) | 15 min (`900000` ms) | 7 days (`604800000` ms) | `JwtKeyConfig` (`app.jwt.expiration-ms`, `app.jwt.refresh-expiration-ms`) |
+| Platform staff (the `PLATFORM_STAFF` context or the `ROLE_PLATFORM_STAFF` authority; Admin/Ops, Delivery Agents and Field Agents) | 5 min (`300000` ms) | 1 day (`86400000` ms) | `AdminSessionProperties` (`app.security.admin.access-ttl-ms`, `app.security.admin.refresh-ttl-ms`) |
 
-One subtlety: the persisted `refresh_tokens.expires_at` row is always stamped with the platform default (7 days) in `RefreshTokenServiceImpl`, even for admins, whereas the admin refresh JWT's own `exp` is 1 day. Because `AuthServiceImpl#refreshToken` accepts the token through `JwtProvider#parseRefreshToken` (which checks the signature and `exp`) before the stored row's `expires_at` is ever consulted, the shorter 1-day JWT expiry governs for admins — the longer DB expiry never gets a chance to matter.
+A response's `expiresIn` reports the access token's own lifetime: 300 s for platform staff and 900 s for everyone else. `generateToken` mints with `JwtProvider#getExpirationDuration(UserDetails, LoginContextResponse)`, and every sign-in and refresh `AuthResponse` reads `expiresIn` from the same call, with the same principal and login context the token was minted for. That covers the password, MFA, phone login, `verify-otp` and refresh doors. Until #388 a staff sign-in or refresh reported 900 s for a token that lived 300 s, so the web app scheduled its refresh too late.
+
+One subtlety: the persisted `refresh_tokens.expires_at` row is always stamped with the platform default (7 days) in `RefreshTokenServiceImpl`, even for platform staff, whereas the staff refresh JWT's own `exp` is 1 day. Because `AuthServiceImpl#refreshToken` accepts the token through `JwtProvider#parseRefreshToken` (which checks the signature and `exp`) before the stored row's `expires_at` is ever consulted, the shorter 1-day JWT expiry governs for platform staff — the longer DB expiry never gets a chance to matter.
 
 ## Signing keys & rotation — `JwtKeyProvider`
 
