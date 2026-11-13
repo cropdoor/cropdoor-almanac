@@ -8,34 +8,40 @@ If you are looking for the *phone-verification gate* itself (when an unverified 
 
 An OTP is a row in `otp_codes` (`model/user/OtpCode.java`, table shaped by `V27__redesign_otp_codes.sql` and `V29__add_sms_delivery_status_to_otp_codes.sql`). The **raw code is never persisted** — only a BCrypt hash in `code_hash`, produced by the same `PasswordEncoder` bean used for account passwords. Each row is scoped by `purpose` (`model/user/OtpPurpose.java`) and `sent_via` (`model/user/OtpChannel.java`), and bounded by `attempts` and `expires_at`.
 
-The invariant is **at most one active code per `(phone, purpose)`**. Before inserting a fresh code, `OtpServiceImpl#reserveOtpRow` calls `OtpCodeRepository#invalidateActiveCodes`, which sets `expires_at = now` on every prior unverified row for that phone and purpose. Lookups (`OtpCodeRepository#findActiveByPhoneAndPurpose`) then select the newest row where `verified = false` and `expires_at > now`, so a superseded or already-used code can never be presented for verification.
+At most **two** codes are live per `(phone, purpose)`: the newest one and the code sent just before it. Before inserting a fresh code, `OtpServiceImpl#reserveOtpRow` calls `OtpCodeRepository#invalidateActiveCodesExceptNewest`, which sets `expires_at = now` on every older unverified row for that phone and purpose. This lets a code still in transit work after a resend. A verify loads every live row (`findAllActiveByPhoneAndPurpose`). **Only the codes of the account that owns the phone now are compared** (#391): a previous holder's codes, and any code on a phone with no account, are set aside, not compared, counted or consumed. So a code sent before a number changed hands never works for its new holder.
 
 | Constant (`OtpServiceImpl`) | Value | Meaning |
 | --- | --- | --- |
 | `OTP_LENGTH` | 6 | Digits, drawn one at a time from `SecureRandom`. |
 | `OTP_TTL` | 10 minutes | Sets `expires_at`; surfaced to clients as `expiresInSeconds`. |
-| `MAX_VERIFY_ATTEMPTS` | 5 | Wrong guesses tolerated before the row is force-expired. |
-| `SEND_PER_PHONE_MAX` / window | 5 / hour | Sends per phone number. |
-| `SEND_PER_IP_MAX` / window | 10 / hour | Sends per client IP (skipped when IP is null). |
-| `VERIFY_PER_PHONE_MAX` / window | 5 / 15 min | Verify attempts per phone number. |
+| `MAX_VERIFY_ATTEMPTS` | 5 | Wrong guesses a code survives. The **sixth** wrong guess expires every code it was compared with (the kill), and a right code afterwards answers as no code. |
+| `SEND_PER_PHONE_MAX` / window | 5 / hour | Sends per phone number **and purpose** (`otp-send:<purpose>:phone`). |
+| `SEND_PER_IP_MAX` / window | 10 / hour | Sends per client IP (skipped when IP is null). **One ceiling shared** by the four anonymous purposes (phone verification, phone login, the SMS reset, the OAuth sign-up) and register (`otp-send:ip`); MFA and the phone change each have their own. |
+| `VERIFY_PER_PHONE_MAX` / window | 5 / 15 min | Verify attempts per phone number. **One limit shared** by the three doors that open an account (phone verification, phone login, the SMS reset: `otp-verify:phone`); MFA, the phone change and the OAuth sign-up each have their own (`otp-verify:<purpose>:phone`). |
+| `RESEND_COOLDOWN` | 60 s | One send per phone **and purpose** per minute (`otp-resend:<purpose>:phone`), so the cooldown is per door. |
 
-All three buckets go through `ScopedRateLimiter` (`security/ratelimit/ScopedRateLimiter.java`), a Redis `INCR` + conditional `EXPIRE` keyed as `rl:{scope}:{identifier}`. On exhaustion it throws `RateLimitExceededException` (HTTP 429) carrying the key's remaining TTL as `Retry-After`.
+Every bucket goes through `ScopedRateLimiter` (`security/ratelimit/ScopedRateLimiter.java`), a Redis `INCR` + conditional `EXPIRE` keyed as `rl:{scope}:{identifier}`. On exhaustion it throws `RateLimitExceededException` (HTTP 429 `RATE_LIMIT_EXCEEDED`) carrying the key's remaining TTL as `Retry-After`. **The scope is chosen by purpose** (#391), through exhaustive switches in `OtpServiceImpl` (`ipScopeFor`, `verifyScopeFor`), with the purpose written lower case with hyphens (`phone-verification`, `login`, `mfa`, `password-reset`, `oauth-signup`, `phone-change`). Every key stays under `rl:otp-send:`, `rl:otp-verify:` or `rl:otp-resend:`. No anonymous door can reach the MFA step's keys.
 
 ## Sending a code: the two-phase dispatch
 
-`OtpServiceImpl#sendOtp` itself runs outside any transaction and brackets the provider HTTP call with two independent committed transactions, invoked through a self-injected `@Lazy OtpService self` proxy so each `@Transactional` method (`reserveOtpRow`, then `recordDispatch`) commits on its own. The provider call sits *between* those two commits, so a delivery-status callback that races back before the send returns can still find a committed row. The source names this the "two-phase send": the two persistence steps are phase 1 and phase 3, with the provider call as the middle step.
+There are two sends. Both reserve the row and call the provider the same way. They differ in who may receive a code and in whether the caller waits.
 
-```
-phase 1  reserveOtpRow      (own tx)  invalidate prior codes, INSERT unverified row, no provider id
-phase 2  smsSender.send /   (no tx)   provider HTTP call, returns providerMessageId
-         voiceSender.send
-phase 3  recordDispatch     (own tx)  attach providerMessageId, set delivery_status = QUEUED
-```
+- **`OtpServiceImpl#sendOtp`, the anonymous doors' send** (phone verification, phone login, the SMS reset, the OAuth sign-up). It works in a fixed order, the same for every phone:
+  - It **counts the limits first**, for every phone: the IP scope and `otp-send:<purpose>:phone`. A sixth send in an hour is 429 whoever the phone belongs to.
+  - **Then it decides who the code reaches.** An unknown phone, or an account the purpose may not reach, gets `OtpSendResult.DISPATCHED` and nothing is sent. Phone login and the SMS reset reach only accounts phone login admits: ACTIVE and not platform staff. A phone already verified, at `PHONE_VERIFICATION`, gets `ALREADY_VERIFIED`, the one case a client may tell apart (it skips the OTP-entry screen).
+  - **The text goes out in the background.** `dispatchInBackground` is `@Async`, and runs after the request's commit when there is one. The answer, and its timing, never depend on whether a text was sent.
+  - **A provider failure is never an answer here.** The request is still 200 `DISPATCHED`. The dropped text is logged at ERROR, naming only the purpose, the channel and the phone's last four digits, and counted in `cropdoor.otp.dispatch.abandoned{purpose, channel}`. That covers an account gone by then too.
+- **`OtpServiceImpl#sendOtpToUser`, the send for callers that already hold the account:** register and its resume, the password login's phone gate, MFA and the phone change. It counts the same keys and sends **in the request**, so a provider failure answers 503 `SMS_SEND_FAILED`. Register uses it because its fresh account is not committed yet, and the background send reloads the account.
 
-Two branches short-circuit before dispatch, both preserving **anti-enumeration** (a caller cannot tell a real send from a no-op):
+Either way the row and the provider call are bracketed by two independent committed transactions, invoked through a self-injected `@Lazy OtpService self` proxy, so that a delivery-status callback that races back before the send returns can still find a committed row:
 
-- **Unknown phone** — no `User` matches the normalized number: the method logs and returns `OtpSendResult.DISPATCHED` (`service/auth/OtpSendResult.java`) without touching the provider.
-- **Already verified** — for `PHONE_VERIFICATION` when the resolved user's phone is already verified: returns `OtpSendResult.ALREADY_VERIFIED`, the one case the client is allowed to distinguish (it skips the OTP-entry screen).
+| Phase | Method | Transaction | What it does |
+| --- | --- | --- | --- |
+| 1 | `reserveOtpRow` | its own | expire older live codes, insert the unverified row with no provider id |
+| 2 | `smsSender.send` / `voiceSender.send` | none | the provider HTTP call, which returns the provider message id |
+| 3 | `recordDispatch` | its own | attach the provider message id; `delivery_status = QUEUED` |
+
+In the background send a failure after phase 2 (the `OTP_SENT` audit, or phase 3) is a WARN and not a dropped text: the person has their code.
 
 There is also the **magic-login** branch: for a seeded phone on the dev allowlist the code becomes a fixed value and dispatch is suppressed. That is a test affordance owned by [Admin login & MFA](admin-login-and-mfa.md).
 
@@ -43,23 +49,27 @@ The controller (`controller/auth/PhoneOtpController.java`) maps the result to `O
 
 ## Verifying a code
 
-`OtpServiceImpl#verifyOtp` (single `@Transactional`) increments `attempts` first, then decides:
+`OtpServiceImpl#verifyOtp` (one `@Transactional`, which **commits on a refusal**: `noRollbackFor = InvalidOtpException, OtpMaxAttemptsExceededException`, as do the six methods a refused check passes through) works in this order:
 
 ```mermaid
 flowchart TD
-    A["verifyOtp(phone, code, purpose)"] --> B["consume verify rate bucket (5 / 15 min)"]
-    B --> C{"active row for (phone, purpose)?"}
-    C -->|no| X["OtpNotFoundException -> 400 OTP_EXPIRED"]
-    C -->|yes| D["attempts = attempts + 1"]
-    D --> E{"attempts greater than 5?"}
-    E -->|yes| F["force-expire row, audit otpFailed, OtpMaxAttemptsExceededException -> 429"]
-    E -->|no| G{"BCrypt matches code_hash?"}
-    G -->|no| H["save attempts, audit otpFailed, InvalidOtpException -> 400"]
-    G -->|yes| I["verified = true, verified_at = now, audit otpVerified"]
+    A["verifyOtp(phone, code, purpose)"] --> B["count the verify limit for every phone (429 at the 6th try in 15 min)"]
+    B --> C["load the live codes for (phone, purpose)"]
+    C --> D["keep only the codes of the account that owns the phone now; for LOGIN and PASSWORD_RESET, only if phone login admits it"]
+    D --> E["BCrypt-compare the code with every code kept, padded to two, no early exit"]
+    E -->|match| I["verified = true, verified_at = now, audit otpVerified"]
+    E -->|no match, codes compared| F["attempts + 1 on each compared code; the sixth wrong guess expires them; audit otpFailed"]
+    E -->|no codes kept| G["refuse"]
+    F --> G
+    G --> H{"phone verification, phone login or the SMS reset?"}
+    H -->|yes| H1["400 INVALID_OTP, for every refusal"]
+    H -->|no| H2["OTP_EXPIRED, INVALID_OTP, or 429 OTP_MAX_ATTEMPTS at the sixth guess"]
     I --> J{"purpose == PHONE_VERIFICATION and was unverified?"}
     J -->|no| K["VerifyOtpOutcome.PhoneVerified"]
     J -->|yes, and issueSession| L["mark user phoneVerified, mint JWT pair, audit loginSucceeded, VerifyOtpOutcome.Authenticated"]
 ```
+
+The guess count is two atomic updates by id (`incrementAttempts`, `expireIfOverAttempts`), written in the request's own transaction, so it persists although the request is refused. Before #391 it rolled back with the refusal, so `OTP_MAX_ATTEMPTS` was unreachable. A concurrent burst compares before any count, so it can pass six guesses. The verify limit still bounds every burst.
 
 The two outcomes are a sealed type, `service/auth/VerifyOtpOutcome.java`:
 
@@ -70,15 +80,16 @@ Whether to issue a session is decided by the controller from the Spring Security
 
 ### Purposes and their callers
 
-`OtpPurpose` scopes the rate-limit keys, the SMS template, and the lookup. This page owns the mechanics; each caller flow is documented on its own page.
+`OtpPurpose` scopes the rate-limit keys (with the shared scopes above), the SMS template and the lookup. An `MFA` code can never be checked at phone login, nor the reverse. This page owns the mechanics; each caller flow is documented on its own page.
 
 | Purpose | Triggered by | Detailed on |
 | --- | --- | --- |
 | `PHONE_VERIFICATION` | `POST /v1/auth/phone/send-otp` → `.../verify-otp` | [Login & the phone gate](login-and-the-phone-gate.md) |
-| `LOGIN` | passwordless login and admin-MFA step-up | [Login & the phone gate](login-and-the-phone-gate.md), [Admin login & MFA](admin-login-and-mfa.md) |
+| `LOGIN` | passwordless phone login (`POST /v1/auth/phone/login/send-otp` → `.../verify-otp`) | [Login & the phone gate](login-and-the-phone-gate.md) |
+| `MFA` | the Admin/Ops MFA step-up (since #391; before, it shared `LOGIN`) | [Admin login & MFA](admin-login-and-mfa.md) |
 | `OAUTH_SIGNUP` | Google signup completion | [OAuth](oauth.md) |
 | `PASSWORD_RESET` | `POST /v1/auth/forgot-password` (phone branch) | this page, below |
-| `PHONE_CHANGE` | reserved, not wired | — |
+| `PHONE_CHANGE` | `POST /v1/users/me/phone-change/send-otp` → `.../verify-otp`, by the signed-in owner | — |
 
 ## Channel routing: SMS vs voice
 
@@ -90,6 +101,8 @@ Whether to issue a session is decided by the controller from the Spring Security
 | Voice | `VoiceSender` | `ArkeselVoiceSender` | `NoopVoiceSender` | `cropdoor.sms.arkesel.voice.enabled` (`false` default) |
 
 **SMS.** `ArkeselSmsSender` (`service/notification/sms/ArkeselSmsSender.java`) posts to the Arkesel SMS v2 API with the recipient's MSISDN stripped of its leading `+`. The message body comes from `messages.properties` keyed by purpose (e.g. `sms.otp.password-reset`), so copy lives in one place. On any provider or transport failure it throws `SmsSendException`; on success it returns a `SendResult` carrying the provider message id (only when the delivery callback feature is enabled). `NoopSmsSender` logs a suffix-masked line at DEBUG and returns a random id — the recommended local/test setup so no Arkesel credits are spent. The `noop` kill switch is the real off-switch, not a credentials trick.
+
+**Timeouts.** Both Arkesel senders take their `RestClient.Builder` from `ArkeselRestClientConfig` (`arkeselRestClientBuilder`, #391). It is a prototype-scoped clone of Boot's auto-configured builder, so `http.client.requests` observation is kept, with connect and read timeouts of `cropdoor.sms.timeout-millis` (5 s). A hung provider therefore fails within seconds. In the background send that is a dropped, counted text; in a synchronous send it is 503.
 
 **Voice.** `voiceBodyFor` builds a TTS-friendly script that spaces each digit and repeats the code. The live `ArkeselVoiceSender` is **scaffolding that must not be enabled** — its class Javadoc is explicit that it was built against an inferred wire format that does not match Arkesel's real unified OTP endpoint (`/api/otp/generate`, which owns code generation and verification itself, a different model from the SMS "dumb pipe"). Because the default is `voice.enabled = false`, `NoopVoiceSender` is wired and no provider call is ever made; flipping the flag on in production would fail at runtime. Voice fallback is a deliberate follow-up. A live-path failure surfaces as `VoiceChannelUnavailableException`.
 
@@ -110,7 +123,7 @@ flowchart TD
     subgraph forgot["POST /v1/auth/forgot-password"]
         FA{"email or phone?"}
         FA -->|email| FB["requestReset: rate-limit ip+email, email a VerificationToken link (PASSWORD_RESET, ~1h)"]
-        FA -->|phone| FC["requestSmsReset: skip if unknown or SUSPENDED, else sendOtp PASSWORD_RESET over SMS"]
+        FA -->|phone| FC["requestSmsReset: sendOtp PASSWORD_RESET over SMS, counted for every phone; nothing sent unless phone login admits the account"]
         FB --> FZ["generic 200: 'if an account exists, a reset message has been sent'"]
         FC --> FZ
     end
@@ -125,7 +138,7 @@ flowchart TD
 
 **Forgot password** — `POST /v1/auth/forgot-password`, body `ForgotPasswordRequest`. An `@AssertTrue` on the DTO enforces **exactly one** of `email` or `phone`. The email branch (`PasswordResetServiceImpl#requestReset`) applies per-IP and per-email limits (10/hour each), then issues a `VerificationToken` of purpose `PASSWORD_RESET` (`app.token.reset-expiry-hours`, default 1) and publishes a `PasswordResetRequestedEvent` that sends the reset-link email. The phone branch (`#requestSmsReset`) normalizes the number, silently skips unknown *and* `SUSPENDED` accounts, and otherwise delegates to `OtpService#sendOtp` (whose own per-phone/per-IP limits apply). Both branches always return 200 with the same message.
 
-**Reset password** — `POST /v1/auth/reset-password`, body `ResetPasswordRequest`, which `@AssertTrue`-enforces **either** a `token` **or** a `phone + code` pair (plus a `@ValidPassword newPassword`). The token branch (`#resetPassword`) consumes the `VerificationToken`; the SMS branch (`#completeSmsReset`) re-normalizes the phone, rejects unknown/suspended accounts, and calls `OtpService#verifyOtp` with `issueSession = false` — a reset never mints a session, so the user must log in with the new password. Both branches set the new hash, clear `passwordResetRequired`, **revoke every active refresh token** ([JWT, sessions & refresh](jwt-sessions-and-refresh.md)), clear account-lockout state on all of the user's identifiers, and audit `passwordChanged`.
+**Reset password** — `POST /v1/auth/reset-password`, body `ResetPasswordRequest`, which `@AssertTrue`-enforces **either** a `token` **or** a `phone + code` pair (plus a `@ValidPassword newPassword`). The token branch (`#resetPassword`) consumes the `VerificationToken`; the SMS branch (`#completeSmsReset`) re-normalizes the phone and calls `OtpService#verifyOtp` with `issueSession = false`. Every refusal is 400 `INVALID_OTP`: an unknown, unparseable or not-admitted phone, no live code, a wrong code. Its verify limit is shared with phone verification and phone login (#391) — a reset never mints a session, so the user must log in with the new password. Both branches set the new hash, clear `passwordResetRequired`, **revoke every active refresh token** ([JWT, sessions & refresh](jwt-sessions-and-refresh.md)), clear account-lockout state on all of the user's identifiers, and audit `passwordChanged`.
 
 **Change password** — `POST /v1/auth/change-password`, authenticated, body `ChangePasswordRequest` (`currentPassword` + `@ValidPassword newPassword`). `AuthServiceImpl#changePassword` verifies the current password and throws `BadCredentialsException` (HTTP 401) on mismatch, then sets the new hash, clears `passwordResetRequired`, and revokes all refresh tokens so every other session is logged out. It is annotated `@Audited(PASSWORD_CHANGE)`.
 
@@ -137,13 +150,13 @@ Every client-reachable failure is a `DomainException` mapped from its `ErrorCode
 
 | Condition | Exception | `errorCode` | HTTP | Notes |
 | --- | --- | --- | --- | --- |
-| No active code for phone+purpose | `OtpNotFoundException` | `OTP_EXPIRED` | 400 | Covers expired, never-sent, or already-used. |
-| Wrong code (within attempt cap) | `InvalidOtpException` | `INVALID_OTP` | 400 | Increments `attempts`. |
-| 6th wrong attempt | `OtpMaxAttemptsExceededException` | `OTP_MAX_ATTEMPTS` | 429 | Force-expires the row. |
-| Send / verify bucket exhausted | `RateLimitExceededException` | `RATE_LIMIT_EXCEEDED` | 429 | `Retry-After` = key TTL. |
-| SMS provider failure | `SmsSendException` | `SMS_SEND_FAILED` | 503 | `Retry-After: 60`; provider detail logged, not echoed. |
-| Voice provider failure | `VoiceChannelUnavailableException` | `VOICE_CHANNEL_UNAVAILABLE` | 503 | Scaffolding path only. |
-| Bad/expired reset token, or bad SMS-reset phone/code | `InvalidVerificationTokenException` | `INVALID_VERIFICATION_TOKEN` | 400 | Uniform message avoids enumeration. |
+| No active code for phone+purpose | `OtpNotFoundException` | `OTP_EXPIRED` | 400 | MFA, the phone change and the OAuth sign-up. At phone verification, phone login and the SMS reset it is `INVALID_OTP` instead. |
+| Wrong code | `InvalidOtpException` | `INVALID_OTP` | 400 | Counts the guess on every code compared; the count persists. **The one refusal at phone verification, phone login and the SMS reset**, for any phone and any reason. |
+| 6th wrong guess | `OtpMaxAttemptsExceededException` | `OTP_MAX_ATTEMPTS` | 429 | Expires the compared codes. The phone change and the OAuth sign-up only; the three anonymous doors answer `INVALID_OTP`; MFA never reaches it. |
+| Send / verify bucket exhausted | `RateLimitExceededException` | `RATE_LIMIT_EXCEEDED` | 429 | `Retry-After` = key TTL; the same for every phone. |
+| SMS provider failure | `SmsSendException` | `SMS_SEND_FAILED` | 503 | `Retry-After: 60`; synchronous sends only (register, the phone gate, MFA, the phone change). The anonymous doors answer 200 and count a dropped text. |
+| Voice provider failure | `VoiceChannelUnavailableException` | `VOICE_CHANNEL_UNAVAILABLE` | 503 | Scaffolding path only; synchronous sends only. |
+| Bad/expired reset token | `InvalidVerificationTokenException` | `INVALID_VERIFICATION_TOKEN` | 400 | The email branch; the SMS branch answers `INVALID_OTP`. |
 | New password fails policy | (bean validation) | `WEAK_PASSWORD` | 400 | From `@ValidPassword`. |
 | Wrong current password (change) | `BadCredentialsException` | — | 401 | Framework-handled. |
 

@@ -22,7 +22,7 @@ sequenceDiagram
     Client->>AuthController: POST /v1/auth/login (identifier, password)
     AuthController->>AuthService: login(...)
     AuthService->>AuthService: authenticate, mfaRequiredForUser == true
-    AuthService->>Otp: sendOtp(phone, LOGIN, SMS)
+    AuthService->>Otp: sendOtpToUser(user, phone, MFA, SMS)
     Otp->>SMS: deliver 6-digit code
     AuthService->>Store: issue(userId, otpTtl) -> challengeId
     AuthService-->>AuthController: MfaChallengeResponse (MFA_REQUIRED, challengeId, expiresInSeconds)
@@ -33,7 +33,7 @@ sequenceDiagram
     Client->>AuthController: POST /v1/auth/login/mfa/verify (challengeId, code)
     AuthController->>AuthService: verifyAdminMfa(...)
     AuthService->>Store: consume(challengeId) -> userId (atomic get+delete)
-    AuthService->>Otp: verifyOtp(phone, code, LOGIN)
+    AuthService->>Otp: verifyOtp(phone, code, MFA)
     AuthService->>AuthService: requireActivePlatformAdmin(user)
     AuthService->>AuthService: mint access + refresh, set admin-idle key
     AuthService-->>AuthController: AuthResponse (AUTHENTICATED, tokens)
@@ -48,7 +48,7 @@ The org-member accept-invite flow (`POST /v1/auth/invites/accept`) reuses the sa
 
 1. Rejects an admin with **no phone on file** — `AdminPhoneNotConfiguredException` (`ADMIN_PHONE_NOT_CONFIGURED`, HTTP 409), since SMS step-up is impossible without a number. A `loginFailedWithUser` audit with reason `ADMIN_PHONE_MISSING` is emitted first.
 2. Resets the account-lockout attempt counter for the identifier (credentials were valid, so the failed-attempt streak is cleared).
-3. Dispatches a fresh OTP via `otpService.sendOtp(phone, OtpPurpose.LOGIN, OtpChannel.SMS, ...)`. OTP generation, hashing, and TTL are owned by [OTP & password recovery](otp-and-password-recovery.md).
+3. Dispatches a fresh OTP via `otpService.sendOtpToUser(user, phone, OtpPurpose.MFA, OtpChannel.SMS, ...)`, synchronously (a provider failure answers 503). **MFA has its own purpose, `OtpPurpose.MFA`** (#391), and so its own rate-limit keys: `otp-send:mfa:phone` (5 an hour), `otp-send:mfa:ip`, and on verify `otp-verify:mfa:phone` (5 per 15 minutes). No anonymous phone-code door can spend them, so a stranger who knows an Admin/Ops's phone cannot lock them out of this step. Before #391 the step used `LOGIN`, shared with passwordless phone login and its limits. The SMS text is the same sign-in message. OTP generation, hashing, and TTL are owned by [OTP & password recovery](otp-and-password-recovery.md).
 4. Issues a challenge through `MfaChallengeStore#issue`, keyed to the user id with a TTL equal to the OTP lifetime (`otpService.getOtpTtl()`).
 5. Emits the `mfaPending` audit and increments the `cropdoor.login.attempts` meter with outcome `mfa_pending`, tagged by login kind (admin / farm / buyer / dormant) so observability can split step-up channels.
 
@@ -61,7 +61,7 @@ The response body (`MfaChallengeResponse`) carries only `outcome`, `challengeId`
 1. **Consume the challenge.** `MfaChallengeStore#consume` atomically reads-and-deletes the entry. Unknown / expired / already-used all collapse to `MfaChallengeNotFoundException` (`MFA_CHALLENGE_NOT_FOUND`, HTTP 400). This is single-use: a replayed challenge id fails.
 2. **Resolve the user** by id, else the same `MFA_CHALLENGE_NOT_FOUND`.
 3. **Reject non-admins.** If the resolved user's `role != ADMIN`, throw `MFA_CHALLENGE_NOT_FOUND` ("resolved to a non-admin user"). This is why the verify endpoint is effectively admin-only.
-4. **Verify the OTP** (`otpService.verifyOtp(..., OtpPurpose.LOGIN, ...)`). A wrong or expired code fails here.
+4. **Verify the OTP** (`otpService.verifyOtp(..., OtpPurpose.MFA, ...)`). A wrong or expired code fails here: 400 `INVALID_OTP`, or 400 `OTP_EXPIRED` for no live code. Only codes of the account that owns the phone now are compared, so a previous holder's code never works. The door's only 429 is its own verify limit, `RATE_LIMIT_EXCEEDED` (5 per 15 minutes per phone). It never reaches `OTP_MAX_ATTEMPTS`, because each challenge allows one guess and every login mints a new code. A wrong guess is counted even though the request is refused: `verifyAdminMfa` commits on `InvalidOtpException`. An MFA code issued before #391 was deployed is a `LOGIN` row and answers `OTP_EXPIRED` once; the Admin/Ops signs in again.
 5. **Re-assert active admin status** via `requireActivePlatformAdmin` — the user must still have an `ACTIVE` `PlatformAdmin` row. This runs *after* OTP verification so a caller without a valid code cannot probe suspension state through the failure shape. Without this guard, an admin suspended during the OTP TTL would receive freshly-minted tokens only to be rejected on the next request, leaving a misleading `loginSucceeded` audit behind.
 6. **Re-resolve the login context** (`LoginContextResolver#resolve`) fresh rather than trusting a value cached at challenge issuance — the role chain may have shifted during the TTL.
 7. Mint the access + refresh pair, persist the refresh session, set the admin idle-session key (see [Idle-session gate](#idle-session-gate)), and emit both `loginSucceeded` (via `LoginVia.ADMIN_MFA`) and `adminLoginSucceeded` audits, plus the `success` login metric tagged `admin`.
@@ -92,7 +92,7 @@ The flag is genuinely per-role and configurable by design — not a static "admi
 
 ## Magic-login: the dev-only OTP shortcut
 
-Passing admin MFA over plain HTTP in local and integration-test runs would otherwise require a real SMS. The magic-login path removes that dependency for **allowlisted phones only**. In `OtpServiceImpl#sendOtp`, when the phone is on the magic-login allowlist the code becomes a fixed operator-supplied value (`123456` in the local recipe) instead of a random draw, and the SMS/voice dispatch is **suppressed** — the code is persisted (hashed) and the `otpSent` audit is emitted exactly as normal, but nothing is handed to a provider.
+Passing admin MFA over plain HTTP in local and integration-test runs would otherwise require a real SMS. The magic-login path removes that dependency for **allowlisted phones only**. In `OtpServiceImpl#sendOtpText`, which both sends use (`sendOtp` for the anonymous doors, `sendOtpToUser` for MFA and the other doors that hold the account), when the phone is on the magic-login allowlist the code becomes a fixed operator-supplied value (`123456` in the local recipe) instead of a random draw, and the SMS/voice dispatch is **suppressed** — the code is persisted (hashed) and the `otpSent` audit is emitted exactly as normal, but nothing is handed to a provider.
 
 The gate is deliberately narrow and dead by default:
 
@@ -118,6 +118,8 @@ Admin traffic is throttled at two distinct points, both backed by Redis:
 
 The pre-auth limiter fires only when the submitted identifier resolves to an existing admin account (`looksLikeAdminIdentifier`); identifier normalization to a single canonical form (E.164 phone or lower-cased email) prevents an attacker from rotating letter-case to reset the bucket.
 
+The MFA step's own SMS-code limits are separate from both buckets, and from every anonymous phone-code door (#391): `otp-send:mfa:phone` and `otp-send:mfa:ip` on the send, and `otp-verify:mfa:phone` on the verify. See [OTP & password recovery](otp-and-password-recovery.md) for the key scheme.
+
 The post-auth filter targets `/v1/admin/**` and runs **inside** the Spring Security chain. Both it and `JwtAuthFilter` are registered before `UsernamePasswordAuthenticationFilter`, with `JwtAuthFilter` added first so it runs earlier — by the time this filter fires, the admin principal is already in the `SecurityContextHolder`. It exists as defense-in-depth: the pre-auth IP-based `RateLimitFilter` buckets by source IP, whereas this one buckets by user id, so a single admin hammering from many IPs is still counted against one quota. A subtlety pinned by `AdminPerUserRateLimitFilterConfig`: because the filter extends `OncePerRequestFilter`, Spring Boot's automatic servlet-layer registration is explicitly **disabled** (a `FilterRegistrationBean` with `setEnabled(false)`), otherwise the outer pass — where the security context is still empty — would set the once-per-request marker and silently no-op the in-chain invocation. It skips actuator, OpenAPI, and CORS `OPTIONS` preflight requests.
 
 ### Forced password-reset gate
@@ -140,7 +142,7 @@ The two-phase verify (`verifyAdminMfa`) writes an `admin-idle:<userId>` Redis ke
 | Challenge store (Redis) | `service/auth/MfaChallengeStore.java` |
 | Step-1 / step-2 request/response DTOs | `dto/auth/response/MfaChallengeResponse.java`, `dto/auth/response/LoginResponse.java`, `dto/auth/response/LoginOutcome.java`, `dto/auth/request/AdminMfaVerifyRequest.java` |
 | MFA requirement resolution | `service/rbac/PermissionResolutionService.java` (`mfaRequiredForUser`) |
-| Magic-login dev path | `service/auth/OtpServiceImpl.java` (`sendOtp`, `isMagicLoginPhone`), `bootstrap/TestDataSeederProperties.java` |
+| Magic-login dev path | `service/auth/OtpServiceImpl.java` (`sendOtpText`, `isMagicLoginPhone`), `bootstrap/TestDataSeederProperties.java` |
 | Pre-auth admin-login limit | `AuthServiceImpl#applyAdminLoginRateLimit`, `security/ratelimit/RateLimitConfig.java` |
 | Post-auth per-user limit | `security/ratelimit/AdminPerUserRateLimitFilter.java`, `AdminPerUserRateLimitFilterConfig.java` |
 | Forced password reset | `security/AdminPasswordResetInterceptor.java`, `config/WebConfig.java` |

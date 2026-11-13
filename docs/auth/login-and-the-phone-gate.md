@@ -73,7 +73,7 @@ Two behaviours are worth calling out:
 - **The lock takes effect on the *next* attempt.** The 5th failed login still returns `401` `INVALID_CREDENTIALS`; it is the 6th request — caught by `rejectIfLocked` at the top of `#login` — that returns `423` `ACCOUNT_LOCKED` with a `Retry-After` header computed from the lock key's remaining TTL (`AccountLockedException#getRetryAfterSeconds`).
 - **`recordFailedAttempt` commits in a `REQUIRES_NEW` transaction.** After it returns, `#login` re-throws `BadCredentialsException` and the outer transaction rolls back. Without the independent inner transaction, the freshly-minted reset token — whose raw value is already inside the queued lockout email — would be erased by that rollback, leaving the user with a dead reset link.
 
-Because the bucket is keyed by identifier, probing a non-existent identifier still trips a lock for that literal string, but no email is sent (the resolved user is `null`). Passwordless phone login checks the same phone-keyed lock bucket.
+Because the bucket is keyed by identifier, probing a non-existent identifier still trips a lock for that literal string, but no email is sent (the resolved user is `null`). Passwordless phone login does **not** read or clear this lock (#391): SMS sign-in keeps its own limits, so a Buyer locked out by wrong passwords can still sign in by SMS code, and there is no 423 at phone login.
 
 ## The phone-verification gate
 
@@ -107,7 +107,7 @@ Returning the canonical `phone` is not an enumeration leak: the response is emit
 
 ### Redeeming the OTP into tokens
 
-The challenge is redeemed at `POST /v1/auth/phone/verify-otp` (`PhoneOtpController#verifyOtp`), which is unauthenticated. Whether the redemption mints a session is derived from the Spring Security context, not a request field: an **anonymous** caller completing a first-time `PHONE_VERIFICATION` receives a freshly-minted token pair; any other case (an already-authenticated caller doing a phone-change, or an already-verified phone) returns a bare `{"outcome":"PHONE_VERIFIED"}` envelope with no tokens.
+The challenge is redeemed at `POST /v1/auth/phone/verify-otp` (`PhoneOtpController#verifyOtp`), which is unauthenticated. Whether the redemption mints a session is derived from the Spring Security context, not a request field: an **anonymous** caller completing a first-time `PHONE_VERIFICATION` receives a freshly-minted token pair; any other case (an already-authenticated caller doing a phone-change, or an already-verified phone) returns a bare `{"outcome":"PHONE_VERIFIED"}` envelope with no tokens. Every refusal at this door is 400 `INVALID_OTP`, including no live code and the sixth wrong guess, which kills the code. Its 5-per-15-minutes verify limit is shared with phone login and the SMS reset (#391).
 
 ```mermaid
 sequenceDiagram
@@ -120,7 +120,7 @@ sequenceDiagram
     Client->>Auth: POST /v1/auth/login (identifier, password)
     Auth->>Svc: login(...)
     Svc->>Svc: credentials valid, phone unverified, gate on
-    Svc->>Otp: sendOtp(phone, PHONE_VERIFICATION, SMS)
+    Svc->>Otp: sendOtpToUser(user, phone, PHONE_VERIFICATION, SMS)
     Svc-->>Auth: VerificationChallengeResponse (VERIFICATION_REQUIRED, resumed=true)
     Auth-->>Client: 200 — no tokens, phone + phoneMasked + channels
     Note over Client: user reads the SMS code
@@ -140,10 +140,10 @@ The gate is controlled by `cropdoor.auth.phone-gate.enabled`, bound by `service/
 
 Distinct from the phone gate is passwordless login, where the OTP *is* the first factor — no password is involved. It lives on the same `PhoneOtpController`:
 
-- `POST /v1/auth/phone/login/send-otp` → `AuthServiceImpl#sendPasswordlessLoginOtp`. Normalizes the phone and dispatches a `LOGIN`-purpose OTP, but **silently no-ops** — returning the same `OtpSentResponse` — when the phone is unknown, belongs to platform staff (in any status, a pending invite included), or belongs to a non-`ACTIVE` user, so a caller cannot enumerate accounts.
-- `POST /v1/auth/phone/login/verify-otp` → `AuthServiceImpl#loginByPhone`. Answers staff and non-`ACTIVE` accounts as an unknown phone, before the code: platform staff in any status (Admin/Ops, Delivery Agents, Field Agents and a pending platform invite) and any other account that is not `ACTIVE` get 400 `INVALID_OTP` "Incorrect OTP code", the same answer as a phone that is not registered. The refusal comes before the lockout check and before the code is checked, so it spends nothing from the phone's verify bucket, which the Admin/Ops SMS step-up also uses. Staff sign in with a password and the SMS step-up. For an admitted account it honours the phone-keyed lockout bucket, verifies the `LOGIN` OTP, resets the attempt counter, checks the rule again on the login context the session is minted with, mints the token pair, and returns an `AuthResponse`. Until #388 this door answered staff with 403 `PRIVILEGE_ESCALATION` and a non-`ACTIVE` account with 401 `INVALID_CREDENTIALS`, which told a caller who owned a phone.
+- `POST /v1/auth/phone/login/send-otp` → `AuthServiceImpl#sendPasswordlessLoginOtp`, which is one call to `OtpService#sendOtp(phone, LOGIN, SMS)`. The limits are counted first for every phone: 429 at the sixth send in an hour, and at the client IP's eleventh anonymous send (one ceiling shared with phone verification, the SMS reset and register). Then the code goes out, in the background, only to an account phone login admits. An unknown phone, platform staff (in any status, a pending invite included) and a non-`ACTIVE` user get the same `OtpSentResponse` and no text, so a caller cannot enumerate accounts. A provider failure is never an answer: 200, with the dropped text logged and counted.
+- `POST /v1/auth/phone/login/verify-otp` → `AuthServiceImpl#loginByPhone`. It verifies the `LOGIN` code first (`OtpService#verifyOtp`). That check compares only the codes of the account that owns the phone now, and only if phone login admits it, so staff in any status (Admin/Ops, Delivery Agents, Field Agents and a pending platform invite) and any account that is not `ACTIVE` are refused before any code is compared, exactly as an unknown phone. **Every refusal is 400 `INVALID_OTP`** "Incorrect OTP code": an unknown or refused phone, no live code, a wrong code, and the sixth wrong guess, which kills the code. The only other answer is 429 at the sixth try in 15 minutes per phone. That limit is **shared with phone verification and the SMS reset**, and it never touches the Admin/Ops MFA limits. The password lockout is not read: no 423 (#391). On a match it checks the rule again on the login context the session is minted with, mints the token pair, and returns an `AuthResponse`. Until #388 this door answered staff with 403 `PRIVILEGE_ESCALATION` and a non-`ACTIVE` account with 401 `INVALID_CREDENTIALS`. Until #391 it answered `OTP_EXPIRED` for no live code, and 423 while the password lock was on.
 
-This is a separate first-factor channel, not part of the verification gate — but it shares the same OTP dispatch and lockout machinery, and it converges on the same `AuthResponse`.
+This is a separate first-factor channel, not part of the verification gate. It shares the OTP machinery (and the account doors' wrong-code limit), not the password lockout, and it converges on the same `AuthResponse`.
 
 ## Where it lives
 
