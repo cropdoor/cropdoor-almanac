@@ -14,7 +14,7 @@ flowchart TD
     B -->|yes| L["LOGIN: return CustomOAuth2User<br/>→ success handler mints tokens"]
     B -->|no| C{"email already on a<br/>local (non-OAuth) account?"}
     C -->|yes| E1["refuse: OAuthLocalAccountExistsException<br/>→ OAUTH_LOCAL_ACCOUNT_EXISTS"]
-    C -->|no| D{"role hint present?<br/>(FARMER / BUYER pinned to state)"}
+    C -->|no| D{"role hint present?<br/>(pinned to state)"}
     D -->|no| E2["refuse: OAuthAccountNotRegisteredException<br/>→ OAUTH_ACCOUNT_NOT_REGISTERED"]
     D -->|yes| S["SIGNUP: mint pending-signup token<br/>→ OAuthSignupPendingException<br/>→ FE complete-signup page"]
 ```
@@ -33,7 +33,7 @@ Google's authorization request has no field for "the user clicked the *Sign up a
 
 The FE starts the flow at `GET /oauth2/authorization/google?role=FARMER` (or `?role=BUYER`). `RoleAwareOAuth2AuthorizationRequestResolver` wraps Spring's default resolver (rooted at the default `/oauth2/authorization` base URI): it reads the `role` query parameter, and on the generated authorization request it stores the role under that request's `state` value in Redis via `OAuthRoleStateStore#store`. Two guardrails apply:
 
-- **`ADMIN` is refused.** A `?role=ADMIN` is logged as a privilege-escalation attempt and dropped — you can never mint an admin through Google. (Belt and suspenders: signup completion re-checks and throws `PrivilegeEscalationException` if the role is `ADMIN`.)
+- **Only a `RegistrationIntent` value is pinned, and it grants nothing.** The resolver reads `role` case-insensitively as a `RegistrationIntent` (`FARMER`, `BUYER` or `DRIVER`). Any other value, `ADMIN` included, is discarded with a WARN and no hint is pinned, so the callback treats the return as a sign-in: an unknown email is refused with `OAUTH_ACCOUNT_NOT_REGISTERED`. There is no admin intent to smuggle, and an intent is only an onboarding hint, never a role or a permission ([Principal model](principal-model.md)). `DRIVER` is a value of the enum, so a hand-made `?role=driver` is pinned; signup completion keeps only `FARMER` or `BUYER` and saves anything else as no intent (below).
 - **Role never reaches Google.** It is stashed server-side keyed by `state`, *not* added to `getAdditionalParameters()` — Spring forwards those to the provider, and Google would reject an unrecognized parameter.
 
 On the callback, `OAuth2UserServiceImpl#readRolePending` pulls the `state` parameter back off the request and calls `OAuthRoleStateStore#consume`, which does an atomic read-and-delete (`GETDEL`) — the hint is single-use. No hint means the sign-in flow (login), not sign-up. If the servlet request context is absent, it safely defaults to "no hint."
@@ -42,8 +42,8 @@ Three short-lived Redis stashes underpin the whole surface, each single-use:
 
 | Redis key | Holds | TTL | Written by | Consumed by |
 | --- | --- | --- | --- | --- |
-| `oauth-pending-role:{state}` | `FARMER` / `BUYER` role hint | 10 min (`app.oauth.role-state-ttl-seconds`, default `600`) | `RoleAwareOAuth2AuthorizationRequestResolver` | `OAuth2UserServiceImpl#readRolePending` (read-and-delete) |
-| `oauth-pending-signup:{token}` | `OAuthPendingSignupData` JSON (Google profile + role) | 10 min (`app.oauth.signup-pending-ttl-seconds`, default `600`) | `OAuth2UserServiceImpl` (on the signup branch) | preview / send-otp *peek*; complete *consumes* |
+| `oauth-pending-role:{state}` | the role hint (`FARMER` or `BUYER` from the sign-up buttons) | 10 min (`app.oauth.role-state-ttl-seconds`, default `600`) | `RoleAwareOAuth2AuthorizationRequestResolver` | `OAuth2UserServiceImpl#readRolePending` (read-and-delete) |
+| `oauth-pending-signup:{token}` | `OAuthPendingSignupData` JSON (Google profile + role) | 10 min (`app.oauth.signup-pending-ttl-seconds`, default `600`) | `OAuth2UserServiceImpl` (on the signup branch) | preview, send-otp and complete *peek*; complete *consumes*, only once the code is accepted |
 | `auth:oauth-exchange:{code}` | serialized `AuthResponse` | 60 s (`app.oauth.exchange-ttl-seconds`, default `60`) | `OAuthAuthenticationSuccessHandler` | `POST /v1/auth/oauth/exchange` (read-and-delete) |
 
 ## OAuth login: success handler and the code exchange
@@ -90,10 +90,10 @@ On the signup branch, `loadUser` builds an `OAuthPendingSignupData` snapshot (pr
 | Method + path | Body | Effect |
 | --- | --- | --- |
 | `GET /preview` | `?token=` | Non-consuming *peek*; returns `OAuthSignupPreview` (`email`, `firstName`, `lastName`, `displayName`, `picture`, `role`) so the FE renders a "Hi {name}, finish setting up" header. |
-| `POST /send-otp` | `OAuthSignupSendOtpRequest` (`token`, `phone`) | Peeks the token, normalizes the phone, rejects a phone already registered, dispatches an `OAUTH_SIGNUP` SMS OTP; returns `OtpSentResponse`. |
-| `POST /complete` | `OAuthSignupCompleteRequest` (`token`, `phone`, `otpCode`) | Consumes the token, verifies the OTP, creates the `User`, mints tokens; returns `AuthResponse`. |
+| `POST /send-otp` | `OAuthSignupSendOtpRequest` (`token`, `phone`) | Peeks the token (410 when it is gone), normalizes the phone (400 when invalid), rejects a phone that already has an account (409), then spends the phone's 60-second resend cooldown (429). Only then does `OtpService#sendOtp` count the send limits and text an `OAUTH_SIGNUP` code, in the background, to the phone, which no account holds. Returns `OtpSentResponse` at once. |
+| `POST /complete` | `OAuthSignupCompleteRequest` (`token`, `phone`, `otpCode`, the accepted policy versions) | Checks the policy versions, peeks the token, rejects a taken phone, verifies the OTP, and only then consumes the token; creates the `User` with the chosen intent, mints tokens; returns `AuthResponse`. |
 
-The `send-otp` and `preview` calls **peek** (read without delete) so they stay idempotent on retry; only `complete` **consumes** (atomic delete) the pending token, so a single Google signup can never mint two accounts even if `complete` is replayed. End to end:
+The `preview` and `send-otp` calls **peek** (read without delete), so they stay idempotent on retry. `complete` peeks too, and **consumes** (atomic delete) the pending token only once the code is accepted, just before the account is made. Every refusal before that leaves the pending signup in place, so the person retries with the same token instead of going back to Google. The consume is still the one gate before an account is made, so a single Google signup can never mint two accounts, even if `complete` is replayed or two run at once. End to end:
 
 ```mermaid
 sequenceDiagram
@@ -113,18 +113,49 @@ sequenceDiagram
     FE->>SC: GET /preview, token
     SC-->>FE: OAuthSignupPreview (name, email, role)
     FE->>SC: POST /send-otp, token + phone
-    SC->>SV: peek token, reject duplicate phone, send OAUTH_SIGNUP OTP
-    SC-->>FE: OtpSentResponse
+    SC->>SV: peek token, 409 if the phone has an account, resend cooldown
+    SV->>SV: OtpService sendOtp OAUTH_SIGNUP (limits, a code with no owner, texted in the background)
+    SC-->>FE: OtpSentResponse (does not wait for the text)
     FE->>SC: POST /complete, token + phone + otpCode
-    SC->>SV: consume token, verify OTP
-    SV->>DB: save User (ACTIVE, phone verified, oauth linked)
+    SC->>SV: policy, peek token, 409 if the phone has an account, verify OTP
+    Note over SC,SV: any refusal so far keeps the pending signup, so the same token retries
+    SV->>SV: consume token (GETDEL)
+    SV->>DB: save User (ACTIVE, phone verified, oauth linked, intent FARMER or BUYER)
     SV-->>SC: AuthResponse (tokens)
     SC-->>FE: 200 ApiResponse<AuthResponse>
 ```
 
-`OAuthSignupService#complete` is `@Transactional` and does the work in a fixed order: consume the token, refuse an `ADMIN` role (`PrivilegeEscalationException`), reject a duplicate phone (`PhoneAlreadyRegisteredException`, 409 `PHONE_ALREADY_REGISTERED`), verify the OTP, then build the `User`. The new row is stamped `status = ACTIVE`, `oauthProvider` / `oauthProviderId` from Google, `avatarUrl` from the picture, `emailVerifiedAt = now` only if Google reported `email_verified`, and `markPhoneVerified(now)` — so the account lands **already phone-verified** and never trips the phone gate on its first login. Names come from Google's `given_name` / `family_name`, falling back to splitting the display `name`, and finally to `Friend` / `User` placeholders (`NameSplitter`). It then mints the token pair, persists the refresh token, audits, and returns the `AuthResponse` directly — no exchange-code detour is needed here because the FE is already inside a JSON request/response cycle.
+**The sign-up code reaches a phone with no account** (#343). The OAuth sign-up is the one purpose whose code goes to a phone *no* account holds; every other purpose still sends nothing to an unknown phone, so no door tells whether a phone has an account ([OTP & password recovery](otp-and-password-recovery.md)). The code row has no owner (`user_id` is null), the text goes out in the background, so the 200 never waits for the provider, and no `OTP_SENT` audit is written, because there is no account to audit. A provider failure is logged at ERROR with only the phone's last four digits and counted in `cropdoor.otp.dispatch.abandoned{purpose="OAUTH_SIGNUP", channel="SMS"}`; the person taps send again after the cooldown. The cooldown is spent only after the pending signup and the free phone are confirmed, so a caller without a live pending signup always gets 410, a taken phone always gets 409, and neither can hold a phone's one-text-a-minute slot.
 
-A stale, expired, or already-consumed pending token throws `OAuthSignupTokenExpiredException` → HTTP 410 `OAUTH_SIGNUP_TOKEN_EXPIRED`, telling the FE to restart the Google flow.
+`OAuthSignupService#complete` is `@Transactional(noRollbackFor = {InvalidOtpException, OtpMaxAttemptsExceededException})`, so a wrong guess's count commits although the request is refused. It does the work in a fixed order:
+
+1. **The accepted policy versions** — 400 `POLICY_ACCEPTANCE_REQUIRED` when they are not current.
+2. **Peek the pending signup** (`GET`) — 410 `OAUTH_SIGNUP_TOKEN_EXPIRED` when it is missing or expired. Nothing else is looked at, so a caller without a live pending signup never learns whether a phone has an account, and never spends a phone's guesses.
+3. **Normalize the phone** — 400 `VALIDATION_FAILED` when invalid.
+4. **Reject a phone with an account** — `PhoneAlreadyRegisteredException`, 409 `PHONE_ALREADY_REGISTERED`.
+5. **Verify the OTP** (`OtpService#verifyOtp`, purpose `OAUTH_SIGNUP`).
+6. **Consume the pending signup** (`GETDEL`). If it went between step 2 and here (it expired, or a concurrent `complete` took it), the answer is 410 and the transaction rolls back, undoing the code's verification, so the code stays live for a fresh pending signup.
+7. **Build the `User`.**
+
+Each refusal and what it leaves:
+
+| Refusal at `complete` | Answer | The pending signup |
+| --- | --- | --- |
+| Policy versions not current | 400 `POLICY_ACCEPTANCE_REQUIRED` | kept |
+| Pending signup missing or expired | 410 `OAUTH_SIGNUP_TOKEN_EXPIRED` | gone already (restart Google) |
+| Invalid phone | 400 `VALIDATION_FAILED` | kept |
+| Phone has an account | 409 `PHONE_ALREADY_REGISTERED` | kept: "use a different phone" works |
+| Verify limit spent (5 per 15 min) | 429 `RATE_LIMIT_EXCEEDED`, `Retry-After` | kept |
+| No live code (none sent, expired, used, killed) | 400 `OTP_EXPIRED` | kept: send again |
+| Wrong code | 400 `INVALID_OTP` | kept: type again |
+| The sixth wrong guess | 429 `OTP_MAX_ATTEMPTS`, the codes killed | kept: send again |
+| Pending signup gone between the peek and the consume | 410 `OAUTH_SIGNUP_TOKEN_EXPIRED` | spent, no account; the code stays live |
+
+Two `complete`s racing on one token make exactly one account: the loser answers 410 (or 400 `OTP_EXPIRED`, if it reads the codes after the winner has committed) and rolls back. A failure after the consume (rare: the email registered elsewhere meanwhile) still spends the pending signup.
+
+The new row is stamped `status = ACTIVE`, `oauthProvider` / `oauthProviderId` from Google, `avatarUrl` from the picture, `emailVerifiedAt = now` only if Google reported `email_verified`, and `markPhoneVerified(now)` — so the account lands **already phone-verified** and never trips the phone gate on its first login. **It keeps the Farmer or Buyer choice** (#343): `registrationIntent` is the pending signup's role when that is `FARMER` or `BUYER`, so the web app opens the chosen onboarding form instead of asking again. Any other hint, such as a hand-made `DRIVER`, is saved as no intent (`null`), the waitlist claim's rule: an onboarding hint never fails a signup, and `null` means the web app asks. Names come from Google's `given_name` / `family_name`, falling back to splitting the display `name`, and finally to `Friend` / `User` placeholders (`NameSplitter`). It then mints the token pair, persists the refresh token, audits, and returns the `AuthResponse` directly — no exchange-code detour is needed here because the FE is already inside a JSON request/response cycle.
+
+A stale, expired, or already-consumed pending token throws `OAuthSignupTokenExpiredException` → HTTP 410 `OAUTH_SIGNUP_TOKEN_EXPIRED`, telling the FE to restart the Google flow. The pending signup lives 10 minutes from the Google callback; neither a send nor a refusal extends it.
 
 ## Failure redirects
 
@@ -144,7 +175,7 @@ These are FE-routing hints carried on a redirect URL — distinct from the `ApiR
 Both OAuth terminals emit through the typed [`AuditEmitter`](../audit/index.md):
 
 - **Login** — `OAuthAuthenticationSuccessHandler` calls `oauthLoginSucceeded(OAuthLoginContext)`, which publishes the standard `LOGIN` action with the device + IP and a `source = "oauth"` discriminator key (an OAuth login is not a distinct action, just a differently-sourced login).
-- **Signup** — `OAuthSignupService#complete` calls `oauthSignupCompleted(OAuthSignupContext)`, publishing the dedicated `OAUTH_SIGNUP` action with the `provider`, provider `sub`, and IP alongside the freshly-created user.
+- **Signup** — `OAuthSignupService#complete` calls `oauthSignupCompleted(OAuthSignupContext)`, publishing the dedicated `OAUTH_SIGNUP` action with the `provider`, provider `sub`, and IP alongside the freshly-created user. The sign-up code itself writes no `OTP_SENT`, `OTP_VERIFIED` or `OTP_FAILED`, because it has no owner; its record is the `otp_codes` row (purpose `OAUTH_SIGNUP`, its attempts and delivery status).
 
 ## Where it lives
 

@@ -8,7 +8,7 @@ If you are looking for the *phone-verification gate* itself (when an unverified 
 
 An OTP is a row in `otp_codes` (`model/user/OtpCode.java`, table shaped by `V27__redesign_otp_codes.sql` and `V29__add_sms_delivery_status_to_otp_codes.sql`). The **raw code is never persisted** — only a BCrypt hash in `code_hash`, produced by the same `PasswordEncoder` bean used for account passwords. Each row is scoped by `purpose` (`model/user/OtpPurpose.java`) and `sent_via` (`model/user/OtpChannel.java`), and bounded by `attempts` and `expires_at`.
 
-At most **two** codes are live per `(phone, purpose)`: the newest one and the code sent just before it. Before inserting a fresh code, `OtpServiceImpl#reserveOtpRow` calls `OtpCodeRepository#invalidateActiveCodesExceptNewest`, which sets `expires_at = now` on every older unverified row for that phone and purpose. This lets a code still in transit work after a resend. A verify loads every live row (`findAllActiveByPhoneAndPurpose`). **Only the codes of the account that owns the phone now are compared** (#391): a previous holder's codes, and any code on a phone with no account, are set aside, not compared, counted or consumed. So a code sent before a number changed hands never works for its new holder.
+At most **two** codes are live per `(phone, purpose)`: the newest one and the code sent just before it. Before inserting a fresh code, `OtpServiceImpl#reserveOtpRow` calls `OtpCodeRepository#invalidateActiveCodesExceptNewest`, which sets `expires_at = now` on every older unverified row for that phone and purpose. This lets a code still in transit work after a resend. A verify loads every live row (`findAllActiveByPhoneAndPurpose`). **Only the codes of the account that owns the phone now are compared** (#391): a previous holder's codes, and any code on a phone with no account, are set aside, not compared, counted or consumed. So a code sent before a number changed hands never works for its new holder. **The OAuth sign-up is the exception** (#343): its codes go to a phone no account holds, so they have no owner, and its verify compares every live sign-up code of the phone, with no account lookup.
 
 | Constant (`OtpServiceImpl`) | Value | Meaning |
 | --- | --- | --- |
@@ -18,7 +18,7 @@ At most **two** codes are live per `(phone, purpose)`: the newest one and the co
 | `SEND_PER_PHONE_MAX` / window | 5 / hour | Sends per phone number **and purpose** (`otp-send:<purpose>:phone`). |
 | `SEND_PER_IP_MAX` / window | 10 / hour | Sends per client IP (skipped when IP is null). **One ceiling shared** by the four anonymous purposes (phone verification, phone login, the SMS reset, the OAuth sign-up) and register (`otp-send:ip`); MFA and the phone change each have their own. |
 | `VERIFY_PER_PHONE_MAX` / window | 5 / 15 min | Verify attempts per phone number. **One limit shared** by the three doors that open an account (phone verification, phone login, the SMS reset: `otp-verify:phone`); MFA, the phone change and the OAuth sign-up each have their own (`otp-verify:<purpose>:phone`). |
-| `RESEND_COOLDOWN` | 60 s | One send per phone **and purpose** per minute (`otp-resend:<purpose>:phone`), so the cooldown is per door. |
+| `RESEND_COOLDOWN` | 60 s | One send per phone **and purpose** per minute (`otp-resend:<purpose>:phone`), so the cooldown is per door. Each door spends it after its own preconditions and before any lookup that could tell a stranger about the phone: phone verification, phone login, the SMS reset and the phone change spend it first; the OAuth sign-up only once its pending signup and the free phone are confirmed (#343), so a caller without a live pending signup cannot hold a phone's slot. |
 
 Every bucket goes through `ScopedRateLimiter` (`security/ratelimit/ScopedRateLimiter.java`), a Redis `INCR` + conditional `EXPIRE` keyed as `rl:{scope}:{identifier}`. On exhaustion it throws `RateLimitExceededException` (HTTP 429 `RATE_LIMIT_EXCEEDED`) carrying the key's remaining TTL as `Retry-After`. **The scope is chosen by purpose** (#391), through exhaustive switches in `OtpServiceImpl` (`ipScopeFor`, `verifyScopeFor`), with the purpose written lower case with hyphens (`phone-verification`, `login`, `mfa`, `password-reset`, `oauth-signup`, `phone-change`). Every key stays under `rl:otp-send:`, `rl:otp-verify:` or `rl:otp-resend:`. No anonymous door can reach the MFA step's keys.
 
@@ -28,8 +28,8 @@ There are two sends. Both reserve the row and call the provider the same way. Th
 
 - **`OtpServiceImpl#sendOtp`, the anonymous doors' send** (phone verification, phone login, the SMS reset, the OAuth sign-up). It works in a fixed order, the same for every phone:
   - It **counts the limits first**, for every phone: the IP scope and `otp-send:<purpose>:phone`. A sixth send in an hour is 429 whoever the phone belongs to.
-  - **Then it decides who the code reaches.** An unknown phone, or an account the purpose may not reach, gets `OtpSendResult.DISPATCHED` and nothing is sent. Phone login and the SMS reset reach only accounts phone login admits: ACTIVE and not platform staff. A phone already verified, at `PHONE_VERIFICATION`, gets `ALREADY_VERIFIED`, the one case a client may tell apart (it skips the OTP-entry screen).
-  - **The text goes out in the background.** `dispatchInBackground` is `@Async`, and runs after the request's commit when there is one. The answer, and its timing, never depend on whether a text was sent.
+  - **Then it decides who the code reaches,** in one exhaustive switch on the purpose (`mayReceive`), which takes the phone's account or none. Phone verification reaches any account. Phone login and the SMS reset reach only accounts phone login admits: ACTIVE and not platform staff. **The OAuth sign-up reaches only a phone with no account** (#343): its code is stored with no owner. Anything else, an unknown phone at phone verification, phone login or the SMS reset, or an account the purpose may not reach, gets `OtpSendResult.DISPATCHED` and nothing is sent, so the answer still never tells whether a phone has an account. (The sign-up door answers a phone with an account 409 `PHONE_ALREADY_REGISTERED` itself, before `sendOtp` is called: register's answer, through Google.) A phone already verified, at `PHONE_VERIFICATION`, gets `ALREADY_VERIFIED`, the one case a client may tell apart (it skips the OTP-entry screen).
+  - **The text goes out in the background.** `dispatchInBackground` is `@Async`, and runs after the request's commit when there is one. The answer, and its timing, never depend on whether a text was sent. It takes the account's id and reloads the account; a null id means a sign-up code, which has no owner: nothing is reloaded, and no `OTP_SENT` audit is written.
   - **A provider failure is never an answer here.** The request is still 200 `DISPATCHED`. The dropped text is logged at ERROR, naming only the purpose, the channel and the phone's last four digits, and counted in `cropdoor.otp.dispatch.abandoned{purpose, channel}`. That covers an account gone by then too.
 - **`OtpServiceImpl#sendOtpToUser`, the send for callers that already hold the account:** register and its resume, the password login's phone gate, MFA and the phone change. It counts the same keys and sends **in the request**, so a provider failure answers 503 `SMS_SEND_FAILED`. Register uses it because its fresh account is not committed yet, and the background send reloads the account.
 
@@ -41,7 +41,7 @@ Either way the row and the provider call are bracketed by two independent commit
 | 2 | `smsSender.send` / `voiceSender.send` | none | the provider HTTP call, which returns the provider message id |
 | 3 | `recordDispatch` | its own | attach the provider message id; `delivery_status = QUEUED` |
 
-In the background send a failure after phase 2 (the `OTP_SENT` audit, or phase 3) is a WARN and not a dropped text: the person has their code.
+In the background send a failure after phase 2 (the `OTP_SENT` audit, which a sign-up code skips, or phase 3) is a WARN and not a dropped text: the person has their code.
 
 There is also the **magic-login** branch: for a seeded phone on the dev allowlist the code becomes a fixed value and dispatch is suppressed. That is a test affordance owned by [Admin login & MFA](admin-login-and-mfa.md).
 
@@ -55,7 +55,7 @@ The controller (`controller/auth/PhoneOtpController.java`) maps the result to `O
 flowchart TD
     A["verifyOtp(phone, code, purpose)"] --> B["count the verify limit for every phone (429 at the 6th try in 15 min)"]
     B --> C["load the live codes for (phone, purpose)"]
-    C --> D["keep only the codes of the account that owns the phone now; for LOGIN and PASSWORD_RESET, only if phone login admits it"]
+    C --> D["keep only the codes of the account that owns the phone now; for LOGIN and PASSWORD_RESET, only if phone login admits it; OAUTH_SIGNUP keeps every live code, which has no owner"]
     D --> E["BCrypt-compare the code with every code kept, padded to two, no early exit"]
     E -->|match| I["verified = true, verified_at = now, audit otpVerified"]
     E -->|no match, codes compared| F["attempts + 1 on each compared code; the sixth wrong guess expires them; audit otpFailed"]
