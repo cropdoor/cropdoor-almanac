@@ -2,14 +2,14 @@
 
 This page owns the token machinery behind every authenticated CropDoor request: how an access token and a refresh token are minted and signed, how signing keys rotate without logging anyone out, how the filter chain re-authenticates each request, and how refresh-token rotation detects a stolen token and burns the whole session. Everything above the login flows — [login and the phone gate](login-and-the-phone-gate.md), [admin login and MFA](admin-login-and-mfa.md), [OAuth](oauth.md) — ends by calling `JwtProvider` to produce the pair described here, so this is the shared plumbing they all sit on.
 
-Two facts anchor the rest of the page. First, **authorities are never in the token** — the JWT carries identity and a login-`scope`, and permissions are re-resolved from the database on every single request. Second, **only hashes hit disk** — the raw refresh JWT is returned to the client once and never persisted, and the blacklist stores a SHA-256 digest, not the token. All response payloads below are the `data` field of the `ApiResponse<T>` wrapper.
+Two facts anchor the rest of the page. First, **authorities are never in the token** — the JWT carries identity, a login-`scope` and the session it belongs to (`sid`), and permissions are re-resolved from the database on every single request. Second, **only hashes hit disk** — the raw refresh JWT is returned to the client once and never persisted, and the blacklist stores a SHA-256 digest, not the token. All response payloads below are the `data` field of the `ApiResponse<T>` wrapper.
 
 !!! info "Status"
-    The parsing, the filter, the refresh and the logout below are as the security fix *Pending invite sign-in* part 2 leaves them (#379, merged 27 Oct 2026, `581fbf01`; live verify passed 66/66; next: the promotion, then the §2.9 deploy step once per environment); the places it changed are marked as part 2's.
+    The parsing, the filter, the refresh and the logout below are as the security fix *Pending invite sign-in* part 2 leaves them (#379, merged 27 Oct 2026, `581fbf01`; live verify passed 66/66; next: the promotion, then the §2.9 deploy step once per environment); the places it changed are marked as part 2's. The `sid` claim, the one place a session is opened and the Devices list's "this device" are as #392 PR 1 leaves them (#395, merged 15 Nov 2026, `6c0561bc`; live verify 48 PASS, 0 FAIL of the 54 required, 6 waived by the CTO); PR 2 removes the deprecated `currentRefreshToken` one release later.
 
 ## The token pair — `JwtProvider`
 
-`security/jwt/JwtProvider.java` mints both tokens, signing each with HMAC-SHA512 (`HS512`) using the active signing key and stamping the key's `kid` into the JWS header. `JwtProvider#generateToken` builds the access token; `JwtProvider#generateRefreshToken` builds the refresh token. Both take a `CustomUserDetails` and the resolved `LoginContextResponse`, so the token records *which* context the session runs in.
+`security/jwt/JwtProvider.java` mints both tokens, signing each with HMAC-SHA512 (`HS512`) using the active signing key and stamping the key's `kid` into the JWS header. `JwtProvider#generateToken` builds the access token; `JwtProvider#generateRefreshToken` builds the refresh token. Both take a `CustomUserDetails` and the resolved `LoginContextResponse`, so the token records *which* context the session runs in. Since #395 `generateToken` also takes the session id, which it writes as `sid`, and refuses a null one: no access token is minted without naming its session (how the right id reaches it is below, under *Minting*).
 
 | Claim | Access token | Refresh token | Meaning |
 | --- | --- | --- | --- |
@@ -19,6 +19,7 @@ Two facts anchor the rest of the page. First, **authorities are never in the tok
 | `iat` / `exp` | yes | yes | Issued-at / expiry, from the injected `Clock` |
 | `userId` | yes | yes | The `users` row id |
 | `email` | yes | no | Same value as `sub` (email-or-phone); named `email` for historical reasons |
+| `sid` | yes | no | The id (a UUID, as a string) of the `refresh_tokens` row minted with this access token: the session's live token at that moment. A refresh mints a new row, so the next access token names the new row; unlike OpenID Connect's `sid`, it changes on every rotation. Since #395 |
 | `type` | no | `"refresh"` | Marks the refresh token; each door checks it (see the parsing below): the refresh door accepts only `"refresh"`, the access door refuses it |
 | `scope` | yes | yes | The `LoginContextType` name, e.g. `PLATFORM_STAFF`, `FARM_MEMBER`, `BUYER_MEMBER`, `DORMANT` |
 | `ownerId` / `ownerType` | org contexts only | org contexts only | The owning farm/buyer org for member contexts |
@@ -31,10 +32,16 @@ Since part 2 (#379), every token is parsed and verified in one place, `JwtProvid
 
 | Method | Read by | Accepts only | Returns |
 | --- | --- | --- | --- |
-| `JwtProvider#parseAccessToken` | `JwtAuthFilter` on HTTP and the chat WebSocket's `CONNECT` alike | a non-blank `email` and `scope` claim, an `exp`, and no `type` of `refresh` | the `email` claim (the principal is loaded by it) and the `exp` |
+| `JwtProvider#parseAccessToken` | `JwtAuthFilter` on HTTP and the chat WebSocket's `CONNECT` alike | a non-blank `email` and `scope` claim, an `exp`, and no `type` of `refresh` | the `email` claim (the principal is loaded by it), the `exp` and, since #395, the `sid` (null for a token minted before it) |
 | `JwtProvider#parseRefreshToken` | `AuthServiceImpl#refreshToken` | a `type` of `refresh`, a non-blank `sub` and an `exp` | the `sub` |
 
-A token that does not verify or has the wrong shape comes back empty, a claim of the wrong type (a number where a string belongs) included, so it is refused rather than answered with a 500. The old `validateToken` and per-claim readers are gone.
+A token that does not verify or has the wrong shape comes back empty, a claim of the wrong type (a number where a string belongs) included, so it is refused rather than answered with a 500; a `sid` that is not a UUID refuses the whole token the same way (only CropDoor signs tokens, and it writes only UUIDs). A token with no `sid` is accepted as before. `JwtAuthFilter` and the chat socket's `CONNECT` ignore `sid`; only the session listing reads it (below). The old `validateToken` and per-claim readers are gone.
+
+### Minting: a session's tokens come from where its row is written
+
+Since #395 an access token is minted only by the method that has just written the refresh-token row it belongs to, and it names that row. `RefreshTokenService#openSession` mints the refresh JWT, inserts its row (the hash only), then mints the access token with `sid` set to the new row's id, and returns both as `IssuedSession(accessToken, refreshToken)`, whose `toString` prints `<redacted>` for both so a log line cannot leak a working token. Every sign-in door opens its session this way: password login, the admin MFA verify, phone login, `verify-otp`, Google sign-up `complete`, the Google login callback and the waitlist claim. A refresh does the same inside the rotation (below). `openSession` and `rotateRefreshToken` are the only production callers of `generateToken`, so the binding is structural rather than eight call sites keeping an order by hand.
+
+The Google login callback is not transactional, so `openSession` runs and commits in its own transaction before the handler parks the `AuthResponse` for the one-time code exchange: the access token the exchange hands back names a committed row. No migration was needed: `sid` is the row's existing id.
 
 ### Token lifetimes
 
@@ -118,7 +125,7 @@ The admin idle-session gate — the `admin-idle:<userId>` Redis key and its slid
 
 `POST /v1/auth/refresh-token` (`AuthController#refreshToken` → `AuthServiceImpl#refreshToken`) exchanges a refresh token for a brand-new access **and** refresh token pair. The endpoint is unauthenticated (the refresh token is the credential), and the caller may pass the old — even expired — access token in the `Authorization` header so it can be blacklisted on the way out. The `RefreshTokenRequest` body carries the refresh token itself.
 
-The service accepts the token through `JwtProvider#parseRefreshToken`, loads the principal by its `sub` through `CustomUserDetailsService` and refuses an account that is not ACTIVE, mints the new pair (re-resolving the login context so a context change is picked up), then hands the rotation to `RefreshTokenServiceImpl#rotateRefreshToken`, with the principal's user as the owner the stored row must belong to. Raw tokens are never stored — `service/auth/RefreshTokenServiceImpl.java` hashes every token with `util/TokenHasher.java` (SHA-256) and matches on the hash.
+The service accepts the token through `JwtProvider#parseRefreshToken`, loads the principal by its `sub` through `CustomUserDetailsService` and refuses an account that is not ACTIVE, re-resolves the login context (so a context change is picked up), then hands the rotation to `RefreshTokenServiceImpl#rotateRefreshToken`, with the principal's user as the owner the stored row must belong to. Since #395 the rotation mints the new pair itself and returns it as an `IssuedSession`: every refusal comes first and mints no access token, and the access token is minted last, naming the row the rotation returns. Raw tokens are never stored — `service/auth/RefreshTokenServiceImpl.java` hashes every token with `util/TokenHasher.java` (SHA-256) and matches on the hash.
 
 This section describes the token chain as rebuilt by the security follow-up (#386, migration V173, 31 Oct 2026).
 
@@ -151,11 +158,11 @@ Five named checks keep the columns consistent with the `revoked` flag (a live ro
     - `SUPERSEDED`: the theft alarm, or a plain refusal.
     - `SIGNED_OUT`, `ALL_REVOKED`, `REUSE_DETECTED` or no reason: a plain refusal that writes nothing.
 5. **The row has expired:** refused.
-6. Otherwise the rotation **inserts its new row, then revokes the presented row** as `ROTATED`, naming the new row, with a conditional update (`RefreshTokenRepository#revokeIfNotYetRevoked`). If that updates nothing, the row was deleted meanwhile (the deploy step), and the refresh is refused.
+6. Otherwise the rotation **inserts its new row, then revokes the presented row** as `ROTATED`, naming the new row, with a conditional update (`RefreshTokenRepository#revokeIfNotYetRevoked`). If that updates nothing, the row was deleted meanwhile (the deploy step), and the refresh is refused. Only then is the access token minted, its `sid` the new row.
 
 ### The grace window (30 seconds)
 
-A refresh whose reply is lost on a weak signal leaves the client holding the old token. Presenting the token a rotation **just** replaced, within 30 seconds of that rotation, gets a fresh token instead of the theft alarm. The replacement its client never received is revoked as `SUPERSEDED`, naming the new row, and the exchange is audited as `REFRESH_TOKEN_GRACE_EXCHANGE` (the presented, superseded and new row ids), written only if the exchange commits. Only the token the rotation replaced qualifies, and only while its replacement is the session's live token; an older token, or any after 30 seconds, is handled as a replay. The window is `RefreshTokenService#GRACE_WINDOW`, measured either way so that a small clock skew between server instances cannot shrink it.
+A refresh whose reply is lost on a weak signal leaves the client holding the old token. Presenting the token a rotation **just** replaced, within 30 seconds of that rotation, gets a fresh token instead of the theft alarm. The replacement its client never received is revoked as `SUPERSEDED`, naming the new row (the one the fresh access token's `sid` names), and the exchange is audited as `REFRESH_TOKEN_GRACE_EXCHANGE` (the presented, superseded and new row ids), written only if the exchange commits. Only the token the rotation replaced qualifies, and only while its replacement is the session's live token; an older token, or any after 30 seconds, is handled as a replay. The window is `RefreshTokenService#GRACE_WINDOW`, measured either way so that a small clock skew between server instances cannot shrink it.
 
 Two consequences: two simultaneous refreshes of one token now **both answer 200** (the second is a grace exchange), and a client that keeps the earlier answer's token holds a superseded token. The web app refreshes one at a time across tabs (`navigator.locks`), and cropdoor-frontend#308 gives its refresh a ~10 s timeout and one immediate retry, so that a lost reply's retry lands inside the window. A thief who uses the window supersedes the owner's new token, so the owner's next refresh raises the alarm.
 
@@ -174,7 +181,7 @@ flowchart TD
     V -->|"yes"| L["lock the account's row"]
     L --> M{"the presented row"}
     M -->|"none, another account's, or expired"| X
-    M -->|"live"| R["insert the new row; revoke the presented one ROTATED"]
+    M -->|"live"| R["insert the new row; revoke the presented one ROTATED; mint the access token naming the new row"]
     R --> OK["200 — new access + refresh"]
     M -->|"ROTATED within 30 s, its replacement still live"| G["grace exchange: new row; the replacement SUPERSEDED; audit"]
     G --> OK
@@ -193,12 +200,17 @@ Each sign-in is a **session**: a chain of refresh token rows linked by `replaced
 
 | Operation | Endpoint | Effect |
 | --- | --- | --- |
-| List sessions | `GET /v1/auth/sessions` | Every live (non-revoked) row for the caller as `SessionResponse`; pass `?currentRefreshToken=` to flag the caller's own row `current = true` |
+| List sessions | `GET /v1/auth/sessions` | Every live (non-revoked) row for the caller as `SessionResponse`, the caller's own row flagged `current = true`: the row its access token's `sid` names (no parameter needed). `?currentRefreshToken=` is deprecated (below) |
 | Revoke one session | `DELETE /v1/auth/sessions/{sessionId}` | Ends that session: if the row named has since been rotated, follows the session to its live token and revokes that (`SIGNED_OUT`); `404 SessionNotFound` if it is not the caller's (never leaks another user's session) |
 | Logout (this device) | `POST /v1/auth/logout` | Blacklists the access token; ends the session of the refresh token in the body, only if it is the caller's own (a live token is revoked, a rotated one is followed to its live token); audits `LOGOUT`. **A superseded token whose session is still live raises the theft alarm**: every token of the account is revoked, the answer is 401 `INVALID_REFRESH_TOKEN`, and the access token is still blacklisted and `LOGOUT` still audited |
 | Logout everywhere | `POST /v1/auth/logout-all` | `revokeAllUserTokens` (every token `ALL_REVOKED`) + blacklists the current access token; audits with scope marker `all_devices` |
 
-`GET /v1/auth/sessions` maps rows through `mapper/auth/RefreshTokenMapper.java`; the `current` flag is computed by hashing the caller-supplied refresh token and comparing to each stored `tokenHash` (passing no token flags every row not-current). `deviceLabel` is presently just an alias of `deviceInfo`.
+`GET /v1/auth/sessions` maps rows through `mapper/auth/RefreshTokenMapper.java`, which flags the row whose id is the caller's session id (none known: every row not-current). Since #395 the session id comes from the request's own access token: the controller reads the `Authorization` header (optional on this route, as on `/refresh-token`, so a missing one means no `sid` rather than a new error), and `AuthServiceImpl#getActiveSessions` reads the `sid` through `JwtProvider#parseAccessToken`. `deviceLabel` is presently just an alias of `deviceInfo`.
+
+- **`sid` wins.** When the access token has a readable `sid`, the `currentRefreshToken` parameter is not read, even if it is sent; the web app, which still sends it, sees the same row flagged as before.
+- **`currentRefreshToken` is deprecated** (so marked in the OpenAPI document) and is read only when the access token yields no readable `sid`: in practice a token minted before #395 deployed, which lives at most 15 minutes (5 for staff). Then, as before, its hash is compared with each listed row's `tokenHash`. #392 PR 2 removes the parameter one release after #395 (a breaking `!` title), once the web app stops sending it (cropdoor-frontend#388). The reason for the change: a refresh token in a URL is a working credential written into every gateway, Cloudflare and Application Insights log on the way.
+- **A signed-out row is flagged for nobody.** The list holds only live rows, so a token whose `sid` names a revoked row flags nothing, and does not fall back to the parameter.
+- #395 added no endpoint, response field, `ErrorCode`, audit action, permission or migration; the only change a client can see is the extra claim in the access token.
 
 The two logout endpoints are distinct routes, not one endpoint with a `scope` parameter — `all_devices` is only an internal audit-scope marker on `LogoutScopeContext`, surfaced through the emitter, not a request field. `logout` tolerates a missing refresh token (it still blacklists the access token); `logout-all` needs no body. The web app's sign-out clears its session whatever the answer, so logout's new 401 needs no client change.
 
@@ -212,7 +224,7 @@ Finally, a **password change** (`POST /v1/auth/change-password`, `AuthServiceImp
 
 | Concern | Source |
 | --- | --- |
-| Token minting, claims, HS512 signing, TTL resolution, the one parse per door | `security/jwt/JwtProvider.java` |
+| Token minting, claims (`sid` included), HS512 signing, TTL resolution, the one parse per door | `security/jwt/JwtProvider.java` |
 | Signing/verification key map + rotation invariants | `security/jwt/JwtKeyProvider.java` |
 | Key config binding | `security/config/JwtKeyConfig.java`, `security/config/JwtKeyEntry.java` (`app.jwt.*`) |
 | Admin TTL / idle knobs | `security/ratelimit/AdminSessionProperties.java` (`app.security.admin.*`) |
@@ -221,6 +233,7 @@ Finally, a **password change** (`POST /v1/auth/change-password`, `AuthServiceImp
 | Filter ordering, stateless policy, entry point wiring | `security/config/SecurityConfig.java` |
 | 401 on missing/invalid token | `security/jwt/JwtAuthEntryPoint.java` |
 | Access-token blacklist (Redis) | `security/jwt/JwtBlacklistServiceImpl.java` |
+| Opening a session: the row and the access token naming it (`openSession`, `IssuedSession`) | `service/auth/RefreshTokenService.java`, `service/auth/RefreshTokenServiceImpl.java` |
 | Refresh rotation, the grace window, reuse detection, session revocation | `service/auth/RefreshTokenServiceImpl.java` (the window: `RefreshTokenService#GRACE_WINDOW`) |
 | The conditional revoke, the revoke-all and a session's live token | `repository/user/RefreshTokenRepository.java` (`revokeIfNotYetRevoked`, `revokeAllByUser`, `findLiveEndOf`) |
 | The account lock every token writer takes | `repository/user/UserRepository.java` (`findByIdForUpdate`) |
@@ -230,7 +243,8 @@ Finally, a **password change** (`POST /v1/auth/change-password`, `AuthServiceImp
 | Blacklist-digest hashing (inline SHA-256) | `security/jwt/JwtBlacklistServiceImpl.java` |
 | Refresh/logout/session endpoints | `controller/auth/AuthController.java` |
 | Session + refresh DTOs | `dto/auth/response/SessionResponse.java`, `dto/auth/request/RefreshTokenRequest.java` |
-| Session mapping | `mapper/auth/RefreshTokenMapper.java` |
+| Which listed session is "this device" (`sid` first, the deprecated parameter as the fallback) | `service/auth/AuthServiceImpl.java` (`getActiveSessions`) |
+| Session mapping (flags the row whose id is the caller's session id) | `mapper/auth/RefreshTokenMapper.java` |
 | Refresh-token entity + table | `model/user/RefreshToken.java` (`refresh_tokens`) |
 | Reuse audit context; the grace exchange audit | `service/platform/audit/context/RefreshTokenReuseContext.java`; `AuditEmitter#refreshTokenGraceExchanged` (`REFRESH_TOKEN_GRACE_EXCHANGE`) |
 | Password bcrypt encoder bean | `security/config/CryptoConfig.java` |
