@@ -1,10 +1,11 @@
 # Who we tell, and when
 
-*The twenty-nine messages the [decided flow](order-delivery-flow-v2.md) promises — fifteen to
-buyers, eleven to farmers, three to staff — drawn against the moment each one is sent. Settled
+*The thirty-three messages the [decided flow](order-delivery-flow-v2.md) promises — sixteen to
+buyers, fourteen to farmers, three to staff — drawn against the moment each one is sent. Settled
 13 September; on 15 September four messages the platform already sends were written onto the list,
 and what a person may switch off was decided. On 23 September the buyer's two refund messages were
-added. The headline count has twice disagreed with the tables below it — it read "eighteen", then
+added. On 27 November the dispute messages were completed: the farm is told how a dispute ended,
+that it was withdrawn, and any correction, and the buyer any correction too. The headline count has twice disagreed with the tables below it — it read "eighteen", then
 "twenty-four", while the tables held more; the tables are the list, and the headline is now counted
 from them. This page is the frame step 2 of
 [the order of work](order-delivery-flow-v2-build-order.md) builds; every later step hangs its
@@ -89,14 +90,15 @@ sequenceDiagram
     B->>CD: raises a dispute
     CD->>B: we have your complaint
     CD->>F: a dispute was raised on your order
-    F->>CD: answers it
+    F->>CD: gives its side (a complaint about the produce)
     CD->>B: the farm has answered
-    CD->>B: the dispute is resolved
+    CD->>B: the dispute is resolved, and any refund
+    CD->>F: the dispute is resolved, and what comes off the payout
 ```
 
 ## Every message, and how it travels
 
-**Buyer — fifteen messages**
+**Buyer — sixteen messages**
 
 | When | What they hear | In-app | Email | Text |
 | --- | --- | --- | --- | --- |
@@ -113,10 +115,11 @@ sequenceDiagram
 | They raise a dispute | We have your complaint | yes | yes | — |
 | The farm answers it | What the farm said | yes | yes | — |
 | The dispute is resolved | The outcome, and any refund with it | yes | yes | — |
+| CropDoor corrects its decision | The decision as it now stands | yes | yes | — |
 | The provider accepts a refund | Your refund has started, and we will say when it is sent | yes | yes | — |
 | The refund is sent | It is on its way back, in 3 to 10 working days, with the credit note on the order | yes | yes | — |
 
-**Farmer — eleven messages**
+**Farmer — fourteen messages**
 
 | When | What they hear | In-app | Email | Text |
 | --- | --- | --- | --- | --- |
@@ -128,7 +131,10 @@ sequenceDiagram
 | The crew could not collect | It failed, and why | yes | yes | — |
 | A delivery comes back | Your produce is on its way back | yes | yes | — |
 | The order is cancelled | It was cancelled, by whom, and why | yes | yes | — |
-| A buyer disputes the order | A complaint was raised, what it says, and the answer they owe | yes | yes | — |
+| A buyer disputes the order | A complaint was raised, what it says, and, on a complaint about the produce, the side they may give | yes | yes | — |
+| The dispute is resolved | The outcome, and what comes off the payout for this order: up to the refund, or nothing | yes | yes | — |
+| The buyer withdraws it | It is closed, and nothing comes off the payout because of it | yes | yes | — |
+| CropDoor corrects its decision | The decision as it now stands | yes | yes | — |
 | The payout runs | You have been paid | yes | yes | — |
 | A payment is returned to us | The payment for this order came back, and we are looking into it | yes | yes | — |
 
@@ -192,7 +198,7 @@ left their list — the same message as the one above.
 
 ## The five texts, and why only those
 
-A text costs money every time it is sent, and a single buyer could receive fifteen messages on one
+A text costs money every time it is sent, and a single buyer could receive sixteen messages on one
 order. These five are the ones where someone has to do something, now:
 
 - **the handoff code**, because they need it at the door and may not have the app open — and at the
@@ -207,7 +213,7 @@ Everything else is in the app, with email where there is detail or a document to
 
 **Four kinds of message, and a person switches off a kind, not a message.** Fewer kinds and
 switching off "delivered" would also stop "we could not deliver"; one switch a message would be
-twenty-nine switches nobody reads.
+thirty-three switches nobody reads.
 
 | Kind | Who sees it | In-app | Email | Text |
 | --- | --- | --- | --- | --- |
